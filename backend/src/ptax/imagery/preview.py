@@ -23,6 +23,12 @@ from shapely.ops import transform as shapely_transform
 from ptax.detection.detector import ParcelRaster
 from ptax.parcels.footprint import utm_epsg_for
 
+#: Markup colours, shared by the parcel viewer's overlay and the evaluation chips so the
+#: two read the same way. Mutually distinguishable and distinct from the yellow/white
+#: parcel outlines: the structure the score rests on, and the rest of what was detected.
+STRUCTURE_RGB = (255, 60, 60)
+NEW_BUILTUP_RGB = (80, 160, 255)
+
 
 @dataclass(frozen=True)
 class ParcelView:

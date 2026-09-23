@@ -16,7 +16,13 @@ from ptax.api.imagery import OUTLINE_PX, OUTLINE_RGB, PNG_HEADERS
 from ptax.auth.deps import CurrentUser, get_current_user, require_role
 from ptax.db.models import ImageryYear, Parcel, Run, RunParcel, Tenant, UserRole
 from ptax.db.session import get_db
-from ptax.imagery.preview import paint, plan_view, render_png
+from ptax.imagery.preview import (
+    NEW_BUILTUP_RGB,
+    STRUCTURE_RGB,
+    paint,
+    plan_view,
+    render_png,
+)
 from ptax.imagery.reader import assets_intersecting, read_parcel
 from ptax.jobs.queue import enqueue
 
@@ -287,11 +293,8 @@ def get_run_parcel(
 # Three colours, mutually distinguishable (and distinct from the boundary's yellow): the
 # structure the score rests on, the rest of what the run detected, and the parcel outline.
 # Drawn in one colour the view still renders, and silently loses the distinction between
-# what produced the score and what did not.
-#: The blob `_largest_structure` selected -- the area the score was computed from.
-STRUCTURE_RGB = (255, 60, 60)
-#: Everything else the run marked as new built-up area.
-NEW_BUILTUP_RGB = (80, 160, 255)
+# what produced the score and what did not. The colours live in `ptax.imagery.preview` so
+# the evaluation chips draw the same markup the same way.
 
 
 @router.get("/{run_id}/parcels/{parcel_id}/overlay.png", response_class=Response)

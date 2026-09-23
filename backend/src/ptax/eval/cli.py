@@ -10,6 +10,7 @@ This is development tooling. It never touches the database, the job queue or S3.
 import json
 import random
 import statistics
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -19,8 +20,10 @@ import typer
 
 from ptax.api.runs import DEFAULT_MIN_NEW_AREA_M2, DEFAULT_THRESHOLD
 from ptax.detection.detector import (
+    ChangeResult,
     ClassicalDetector,
     InsufficientCoverage,
+    ParcelRaster,
     RadiometricFit,
     fit_radiometry,
     paired_samples,
@@ -366,25 +369,7 @@ def _score_set(
     resolution = max(*(e.gsd_m for e in entries.values()), MIN_RESOLUTION_M)
     results: list[ScoredParcel] = []
     indicators: dict[str, dict[str, Any]] = {}
-
-    def read_pair(parcel: dict[str, Any]) -> tuple[Any, Any]:
-        geometry = parcel_geometry(parcel)
-        return tuple(  # type: ignore[return-value]
-            read_parcel_uris(
-                LOCAL_ENV, uris_for(entries, year, geometry), geometry, resolution_m=resolution
-            )
-            for year in (eval_set.base_year, eval_set.target_year)
-        )
-
-    fit = _fit_radiometry(eval_set, read_pair)
-    if fit is not None:
-        typer.echo(
-            f"radiometric fit over {fit.sampled_parcels} parcels: "
-            f"NIR gain {fit.indicators['radiometric_gain']}, "
-            f"offset {fit.indicators['radiometric_offset']}"
-        )
-    else:
-        typer.echo("no usable radiometric fit; scoring unnormalised", err=True)
+    fit = _announced_fit(eval_set, _pair_reader(eval_set, entries, resolution))
 
     for label in STRATA:
         for parcel in eval_set.strata[label].parcels:
@@ -418,6 +403,77 @@ def _score_set(
             results.append(ScoredParcel(pid, label, outcome.score, outcome.candidate))
             indicators[pid] = outcome.indicators
     return results, indicators
+
+
+def _pair_reader(
+    eval_set: EvalSet, entries: dict[str, CacheEntry], resolution: float
+) -> Callable[[dict[str, Any]], tuple[ParcelRaster | None, ParcelRaster | None]]:
+    """Read one parcel's base and target on the run job's comparison grid."""
+
+    def read_pair(parcel: dict[str, Any]) -> tuple[ParcelRaster | None, ParcelRaster | None]:
+        geometry = parcel_geometry(parcel)
+        base, target = (
+            read_parcel_uris(
+                LOCAL_ENV, uris_for(entries, year, geometry), geometry, resolution_m=resolution
+            )
+            for year in (eval_set.base_year, eval_set.target_year)
+        )
+        return base, target
+
+    return read_pair
+
+
+def _announced_fit(
+    eval_set: EvalSet,
+    read_pair: Callable[[dict[str, Any]], tuple[ParcelRaster | None, ParcelRaster | None]],
+) -> RadiometricFit | None:
+    fit = _fit_radiometry(eval_set, read_pair)
+    if fit is not None:
+        typer.echo(
+            f"radiometric fit over {fit.sampled_parcels} parcels: "
+            f"NIR gain {fit.indicators['radiometric_gain']}, "
+            f"offset {fit.indicators['radiometric_offset']}"
+        )
+    else:
+        typer.echo("no usable radiometric fit; scoring unnormalised", err=True)
+    return fit
+
+
+def _chip_detector(
+    eval_set: EvalSet, entries: dict[str, CacheEntry], resolution: float
+) -> Callable[[ParcelRaster, ParcelRaster], ChangeResult | None]:
+    """The detector exactly as `score` runs it -- same grid, same run-level fit.
+
+    The markup and the ranking both have to describe the scores `score` reports, or a
+    sheet of "top-ranked" parcels would be ranked by a different detector. Threshold and
+    minimum structure size only decide `candidate`; neither the masks nor the score
+    depend on them, so the shipped defaults are used.
+    """
+    detector = ClassicalDetector()
+    fit = _announced_fit(eval_set, _pair_reader(eval_set, entries, resolution))
+
+    def detect(base: ParcelRaster, target: ParcelRaster) -> ChangeResult | None:
+        try:
+            return detector.compare(
+                base,
+                target,
+                threshold=DEFAULT_THRESHOLD,
+                min_new_area_m2=DEFAULT_MIN_NEW_AREA_M2,
+                fit=fit,
+            )
+        except InsufficientCoverage:
+            return None
+
+    return detect
+
+
+def _rank(scores: dict[str, float | None]) -> list[str]:
+    """Parcel ids, highest detector score first; unscored parcels last.
+
+    Ties break on the id so the same set always produces the same sheets -- a ranked
+    sheet someone has annotated must still line up after a re-render.
+    """
+    return sorted(scores, key=lambda pid: (scores[pid] is None, -(scores[pid] or 0.0), pid))
 
 
 #: Indicators whose per-year distributions expose a capture-level bias. Plan B attributed
@@ -521,17 +577,52 @@ def chips(
     chip_px: int = typer.Option(
         420, "--chip-px", help="target longest side per year; chips are scaled toward it"
     ),
+    markup: bool = typer.Option(
+        False,
+        "--markup",
+        help="add a third panel: the target with the detector's markup drawn on it",
+    ),
+    ranked: bool = typer.Option(
+        False, "--ranked", help="with --all: order by detector score, highest first"
+    ),
+    limit: int = typer.Option(
+        0, "--limit", min=0, help="with --all: render only the first N parcels (0 = all)"
+    ),
 ) -> None:
-    """Render base/target chip pairs and a contact sheet for auditing the labels."""
+    """Render base/target chip pairs and a contact sheet for auditing the labels.
+
+    Without flags this renders exactly the sheets the visual labels were read from, blind
+    to the detector. `--markup` adds what the detector marked; `--ranked --limit 20` renders
+    its twenty highest-scoring parcels, which is where its false positives concentrate.
+    """
+    if (ranked or limit) and not every:
+        raise typer.BadParameter("--ranked and --limit apply to --all sheets")
     eval_set = read_set(set_path)
     entries = read_manifest(_cache_dir(set_path) / "manifest.json")
     if not entries:
         raise typer.BadParameter(f"no cache for {set_path}; run `ptax-eval fetch` first")
 
     out_dir = EVAL_DIR / "out" / "chips" / set_path.stem
+    # Never write detector-aware sheets over the blind labelling sheets.
+    if ranked:
+        out_dir = out_dir / "ranked"
+    elif markup:
+        out_dir = out_dir / "markup"
     resolution = max(*(e.gsd_m for e in entries.values()), MIN_RESOLUTION_M)
+    detect = _chip_detector(eval_set, entries, resolution) if (markup or ranked) else None
     if every:
-        _chip_sheets(eval_set, entries, out_dir, resolution, chip_px, per_sheet)
+        _chip_sheets(
+            eval_set,
+            entries,
+            out_dir,
+            resolution,
+            chip_px,
+            per_sheet,
+            detect=detect,
+            markup=markup,
+            ranked=ranked,
+            limit=limit,
+        )
         return
     # Draw evenly across strata: the set is already equal-quota, and the noise estimate
     # needs support in every stratum rather than in whichever one happens to be largest.
@@ -558,12 +649,20 @@ def chips(
             if rasters[0] is None or rasters[1] is None:
                 typer.echo(f"  no imagery for {pid}", err=True)
                 continue
-            tile = fit(pair(rasters[0], rasters[1]), chip_px * 2)
+            outcome = detect(rasters[0], rasters[1]) if detect is not None else None
+            marks = _marks(outcome) if markup else None
+            panels = 3 if markup else 2
+            tile = fit(pair(rasters[0], rasters[1], marks=marks), chip_px * panels)
             destination = out_dir / f"{label}_{pid}.png"
             write_png(destination, tile)
             row, column = divmod(len(tiles), columns)
             tiles.append(tile)
-            index.append(ChipEntry(pid, label, row, column, str(destination)))
+            index.append(
+                ChipEntry(
+                    pid, label, row, column, str(destination),
+                    score=outcome.score if outcome is not None else None,
+                )
+            )
 
     sheet_path = out_dir / "contact-sheet.png"
     write_png(sheet_path, contact_sheet(tiles, columns=columns))
@@ -662,8 +761,6 @@ def _report_no_imagery_baseline(eval_set: EvalSet, labels: VisualLabels | None =
     typer.echo(f"  precision @ top 5%   {precision_at_top_fraction(ranked, weights, 0.05):.4f}")
     typer.echo("  a detector that does not beat this has not detected anything")
 
-if __name__ == "__main__":
-    app()
 
 
 def _chip_sheets(
@@ -673,6 +770,11 @@ def _chip_sheets(
     resolution: float,
     chip_px: int,
     per_sheet: int,
+    *,
+    detect: Callable[[ParcelRaster, ParcelRaster], ChangeResult | None] | None = None,
+    markup: bool = False,
+    ranked: bool = False,
+    limit: int = 0,
 ) -> None:
     """Render the whole set as numbered contact sheets, for labelling every parcel by eye.
 
@@ -680,16 +782,43 @@ def _chip_sheets(
     the labels need -- did a structure appear between these two captures -- survives being
     read from a tiled sheet as long as each cell stays large enough to show a small
     outbuilding. Two columns keeps each pair near its standalone width.
+
+    With ``ranked`` the set is ordered by detector score across strata rather than by
+    stratum, so the first sheet holds the parcels the detector is most sure of -- the
+    place to look for what it mistakes for a building.
     """
-    parcels = [
-        (label, parcel)
-        for label in STRATA
-        for parcel in sorted(eval_set.strata[label].parcels, key=lambda p: str(p["PID"]))
-    ]
+    records: list[tuple[str, dict[str, Any], tuple[ParcelRaster, ParcelRaster], Any]] = []
+    for label in STRATA:
+        for parcel in sorted(eval_set.strata[label].parcels, key=lambda p: str(p["PID"])):
+            pid = str(parcel["PID"])
+            geometry = parcel_geometry(parcel)
+            base, target = (
+                read_parcel_uris(
+                    LOCAL_ENV, uris_for(entries, year, geometry), geometry,
+                    resolution_m=resolution,
+                )
+                for year in (eval_set.base_year, eval_set.target_year)
+            )
+            if base is None or target is None:
+                typer.echo(f"  no imagery for {pid}", err=True)
+                continue
+            outcome = detect(base, target) if detect is not None else None
+            records.append((label, parcel, (base, target), outcome))
+
+    if ranked:
+        order = _rank(
+            {str(r[1]["PID"]): (r[3].score if r[3] is not None else None) for r in records}
+        )
+        position = {pid: i for i, pid in enumerate(order)}
+        records.sort(key=lambda r: position[str(r[1]["PID"])])
+    if limit:
+        records = records[:limit]
+
+    panels = 3 if markup else 2
     index: list[ChipEntry] = []
     sheet_no = 0
     tiles: list[Any] = []
-    pending: list[tuple[str, str]] = []
+    pending: list[tuple[str, str, float | None]] = []
 
     def flush() -> None:
         nonlocal tiles, pending, sheet_no
@@ -698,29 +827,37 @@ def _chip_sheets(
         sheet_no += 1
         path = out_dir / f"sheet-{sheet_no:03d}.png"
         write_png(path, contact_sheet(tiles, columns=2))
-        for position, (pid, label) in enumerate(pending):
+        for position, (pid, label, score) in enumerate(pending):
             row, column = divmod(position, 2)
-            index.append(ChipEntry(pid, label, row, column, str(path)))
+            index.append(ChipEntry(pid, label, row, column, str(path), score=score))
         typer.echo(f"  {path.name}: {len(pending)} parcels")
         tiles, pending = [], []
 
-    for label, parcel in parcels:
-        pid = str(parcel["PID"])
-        geometry = parcel_geometry(parcel)
-        rasters = [
-            read_parcel_uris(
-                LOCAL_ENV, uris_for(entries, year, geometry), geometry, resolution_m=resolution
-            )
-            for year in (eval_set.base_year, eval_set.target_year)
-        ]
-        if rasters[0] is None or rasters[1] is None:
-            typer.echo(f"  no imagery for {pid}", err=True)
-            continue
-        tiles.append(letterbox(pair(rasters[0], rasters[1]), chip_px * 2, chip_px))
-        pending.append((pid, label))
+    for label, parcel, (base, target), outcome in records:
+        marks = _marks(outcome) if markup else None
+        tiles.append(
+            letterbox(pair(base, target, marks=marks), chip_px * panels, chip_px)
+        )
+        pending.append(
+            (str(parcel["PID"]), label, outcome.score if outcome is not None else None)
+        )
         if len(tiles) >= per_sheet:
             flush()
     flush()
 
     write_index(out_dir / "sheet-index.json", index, 2)
     typer.echo(f"wrote {sheet_no} sheets covering {len(index)} parcels in {out_dir}")
+
+
+def _marks(outcome: ChangeResult | None) -> tuple[Any, Any] | None:
+    """The markup masks for `pair`, or None for a parcel the detector could not score.
+
+    A skipped parcel then renders two panels in a three-panel cell, visibly missing its
+    markup, rather than a third panel that silently matches the target.
+    """
+    if outcome is None or outcome.new_builtup_mask is None or outcome.structure_mask is None:
+        return None
+    return outcome.new_builtup_mask, outcome.structure_mask
+
+if __name__ == "__main__":
+    app()

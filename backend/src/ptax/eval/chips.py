@@ -10,6 +10,11 @@ This module renders one PNG per parcel with the base year left and the target ye
 at a common scale, plus a contact sheet of the whole audit sample, so a reader can settle
 each case by looking. PNGs are written through rasterio's driver over a numpy array -- no
 new dependency.
+
+On request a third panel shows the target with the detector's markup drawn on it, in the
+parcel viewer's colours, so the evaluation set can answer the question the viewer answers
+for a run: what did the detector mark, and is it really there? It is opt-in because the
+labelling use has to stay blind to the detector.
 """
 
 import json
@@ -21,6 +26,7 @@ import numpy as np
 import rasterio
 
 from ptax.detection.detector import ParcelRaster
+from ptax.imagery.preview import NEW_BUILTUP_RGB, STRUCTURE_RGB
 
 #: Pixels of padding drawn between and around chips in a pair or contact sheet.
 GUTTER = 4
@@ -41,6 +47,8 @@ class ChipEntry:
     row: int
     column: int
     path: str
+    #: The detector's score, when the sheet was ranked or marked up; None otherwise.
+    score: float | None = None
 
 
 def _rgb(raster: ParcelRaster) -> np.ndarray:
@@ -76,14 +84,50 @@ def _pad_to(chip: np.ndarray, height: int, width: int) -> np.ndarray:
     return out
 
 
-def pair(base: ParcelRaster, target: ParcelRaster) -> np.ndarray:
-    """Base left, target right, on one canvas at a common scale."""
-    left, right = _rgb(base), _rgb(target)
-    height = max(left.shape[0], right.shape[0])
-    width = max(left.shape[1], right.shape[1])
-    canvas = np.full((height, width * 2 + GUTTER, 3), GUTTER_VALUE, dtype=np.uint8)
-    canvas[:, :width] = _pad_to(left, height, width)
-    canvas[:, width + GUTTER :] = _pad_to(right, height, width)
+def marked(
+    target: ParcelRaster, new_builtup: np.ndarray, structure: np.ndarray
+) -> np.ndarray:
+    """The target chip with the detector's markup drawn on it, as the viewer draws it.
+
+    The wider new built-up area first, the structure the score rests on over it, and the
+    parcel outline last so a detection reaching the boundary cannot hide it. The masks
+    come from `ClassicalDetector.compare` on this same grid -- chips are read at the run
+    job's comparison resolution with no buffer -- so they register pixel for pixel and
+    need no reprojection.
+    """
+    if new_builtup.shape != target.parcel_mask.shape or structure.shape != new_builtup.shape:
+        raise ValueError("markup masks must be on the chip's own grid")
+    rgb = _rgb(target)
+    rgb[new_builtup] = NEW_BUILTUP_RGB
+    rgb[structure] = STRUCTURE_RGB
+    rgb[_boundary(target.parcel_mask)] = OUTLINE_VALUE
+    return rgb
+
+
+def pair(
+    base: ParcelRaster,
+    target: ParcelRaster,
+    marks: tuple[np.ndarray, np.ndarray] | None = None,
+) -> np.ndarray:
+    """Base left, target right, on one canvas at a common scale.
+
+    ``marks`` -- ``(new_builtup, structure)`` masks from the detector -- adds a third
+    panel, the target with that markup drawn on it. Without it the canvas is exactly the
+    two-panel pair the visual labels were read from: labelling has to stay blind to what
+    the detector marked, so the markup is never drawn unless asked for.
+    """
+    panels = [_rgb(base), _rgb(target)]
+    if marks is not None:
+        panels.append(marked(target, *marks))
+    height = max(p.shape[0] for p in panels)
+    width = max(p.shape[1] for p in panels)
+    count = len(panels)
+    canvas = np.full(
+        (height, width * count + GUTTER * (count - 1), 3), GUTTER_VALUE, dtype=np.uint8
+    )
+    for index, panel in enumerate(panels):
+        left = index * (width + GUTTER)
+        canvas[:, left : left + width] = _pad_to(panel, height, width)
     return canvas
 
 
@@ -182,6 +226,7 @@ def write_index(path: Path, entries: list[ChipEntry], columns: int) -> None:
                 "row": e.row,
                 "column": e.column,
                 "path": e.path,
+                "score": e.score,
             }
             for e in entries
         ],

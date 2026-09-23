@@ -649,3 +649,31 @@ other than buildings, and relabelling cut its average precision nearly in half �
 what it was "detecting" was an artefact of what `BUILD_YR` records, not of what the ground
 looks like. Judge the learned detector on these visual labels, and keep printing the
 baseline beside it.
+
+## What the detector marks (2026-09-23)
+
+`ptax-eval chips` can draw the detector's markup, in the parcel viewer's colours — red
+for the structure the score rests on, blue for the rest of the detected new built-up area:
+
+```bash
+uv run ptax-eval chips eval/nw-hennepin-2010-2021.json --all --ranked --limit 20 --markup
+```
+
+`--markup` adds a third panel per parcel; `--ranked` orders the set by detector score
+across strata; `--limit` keeps the first N. Output goes to `out/chips/<set>/ranked/` (or
+`markup/`), never over the labelling sheets. Without flags the command renders the same
+sheets as before, byte for byte, **blind to the detector** — the visual labels must stay
+uninfluenced by what it marked.
+
+The detector's twenty highest-scoring parcels, joined to the visual labels:
+
+- **Ranks 1–13 are all false positives** (`no_change` or `ground_change_only`). The first
+  real improvement is rank 14; ranks 14–20 are all real.
+- **None of the top ten scoring structures is a roof.** Each is bare ground: a harvested
+  or mowed field stripe, a dirt track, a dried pond, graded lots, bare yard patches.
+
+Graded lots are the clearest case. The structure filter rewards compact, near-rectangular
+blobs, and a graded house lot is exactly that — so the detector's *largest* structures are
+lots that have been prepared for building but not yet built on. This is the concrete
+mechanism behind `precision @ top 1% = 0.0000`, and the failure mode a learned detector
+has to separate: bright, smooth, compact, recently disturbed ground versus a roof.
