@@ -15,6 +15,7 @@ reader needs to see how few parcels an estimate rests on.
 This module is pure: it takes labels and scores and returns numbers.
 """
 
+import random
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -240,6 +241,44 @@ def precision_at_top_fraction(
         if parcel.improved:
             hits += weight
     return hits / taken if taken else 0.0
+
+
+def bootstrap_ap_interval(
+    parcels: list[ScoredParcel],
+    county: dict[str, int],
+    *,
+    replicates: int = 1000,
+    seed: int = 0,
+    level: float = 0.95,
+) -> tuple[float, float]:
+    """A percentile bootstrap interval on weighted average precision.
+
+    With 99 improved parcels among 300, a margin of a few hundredths in AP can be noise,
+    and the decision gate has to know whether it is. The resampling copies the sampling
+    design: each replicate redraws every stratum with replacement at its own size, and the
+    weights are recomputed from the redrawn counts, so a replicate that happens to draw
+    fewer scored parcels from a stratum weights each of them more -- exactly as the real
+    sample would.
+    """
+    rng = random.Random(seed)
+    by_stratum: dict[str, list[ScoredParcel]] = {}
+    for parcel in parcels:
+        by_stratum.setdefault(parcel.stratum, []).append(parcel)
+
+    estimates: list[float] = []
+    for _ in range(replicates):
+        drawn: list[ScoredParcel] = []
+        for stratum in sorted(by_stratum):
+            members = by_stratum[stratum]
+            drawn.extend(rng.choices(members, k=len(members)))
+        weights = parcel_weights(stratum_counts(drawn), county)
+        estimates.append(average_precision(drawn, weights))
+
+    estimates.sort()
+    tail = (1.0 - level) / 2.0
+    low = estimates[int(tail * (replicates - 1))]
+    high = estimates[int(round((1.0 - tail) * (replicates - 1)))]
+    return low, high
 
 
 def apply_audit(

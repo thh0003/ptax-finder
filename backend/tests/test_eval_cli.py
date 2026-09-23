@@ -57,3 +57,59 @@ def test_the_score_and_skip_reason_survive_relabelling() -> None:
 
     assert labelled[0].skipped_reason == "no_coverage"
     assert labelled[0].scored is False
+
+
+def test_the_registry_builds_the_classical_detector_by_name() -> None:
+    from ptax.detection.detector import ClassicalDetector
+    from ptax.detection.registry import get_detector
+
+    assert isinstance(get_detector("classical"), ClassicalDetector)
+
+
+def test_an_unknown_detector_name_is_refused_with_the_valid_names() -> None:
+    import pytest
+
+    from ptax.detection.registry import DETECTORS, get_detector
+
+    with pytest.raises(ValueError) as excinfo:
+        get_detector("nope")
+    for name in DETECTORS:
+        assert name in str(excinfo.value)
+
+
+def test_importing_the_registry_never_imports_torch() -> None:
+    """The production image has no torch; the registry is imported on every path."""
+    import subprocess
+    import sys
+
+    probe = (
+        "import sys, ptax.detection.registry, ptax.eval.cli;"
+        "print('torch' in sys.modules)"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", probe], capture_output=True, text=True, check=True
+    )
+    assert result.stdout.strip() == "False"
+
+
+def test_the_year_bias_report_reads_the_segmenters_building_fractions(capsys) -> None:
+    from ptax.eval.cli import _report_year_bias
+
+    _report_year_bias(
+        {
+            "a": {"base_building_frac": 0.2, "target_building_frac": 0.3},
+            "b": {"base_building_frac": 0.4, "target_building_frac": 0.4},
+        }
+    )
+
+    out = capsys.readouterr().out
+    assert "base_building_frac" in out and "(n=2)" in out
+    assert "n=0" not in out
+
+
+def test_the_year_bias_report_is_silent_without_per_year_fractions(capsys) -> None:
+    from ptax.eval.cli import _report_year_bias
+
+    _report_year_bias({"a": {"structure_m2": 10.0}})
+
+    assert "agree closely" not in capsys.readouterr().out

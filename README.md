@@ -112,6 +112,11 @@ make eval-score      # precision / recall / flag rate, reweighted to the county 
 # judge the detector on what the imagery shows rather than on assessor build years
 uv run ptax-eval score eval/nw-hennepin-2010-2021.json \
   --labels eval/visual-labels-nw-hennepin-2010-2021.json
+
+# the learned detector (optional `ml` dependency group; production never installs it)
+uv sync --group ml
+uv run --group ml ptax-eval score eval/nw-hennepin-2010-2021.json \
+  --labels eval/visual-labels-nw-hennepin-2010-2021.json --detector segmentation
 ```
 
 Needs network but **no AWS credentials**. Every run also prints a no-imagery baseline that
@@ -247,8 +252,21 @@ stratum holding those 14 is 92% of the county, the true base rate is three times
 alone; relabelling cut that baseline's average precision from 0.48 to 0.26, which is how
 much of it was an artefact of the assessor's records rather than of the ground.
 
-Full evidence, including the labelled sets, the visual labels and the no-imagery baseline,
-in [`backend/eval/README.md`](backend/eval/README.md).
+**A learned detector passes the decision gate** (2026-09-23). `segmenter-v1` — a U-Net
+building segmenter trained on NAIP with open building footprints, from neighbourhoods at
+least 1 km from the evaluation area and frozen before its first score — ranks the same 300
+labelled parcels at **average precision 0.588 (95% CI 0.422–0.772)** against 0.224 for the
+classical detector and 0.258 for the no-imagery baseline, with **19 of its top 20** parcels
+genuinely improved and every top-20 structure on a roof, where the classical detector's top
+13 were graded lots and bare ground. At its shipped defaults it flags 14% at 61% precision;
+the ≤2% / ≥60% target is met on the point estimate (1.7% flagged, 14 of 14 correct) but
+rests on too few parcels to call settled. CPU inference costs about 74 ms per parcel. It is
+selectable in the evaluation harness only (`ptax-eval score --detector segmentation`, which
+needs `uv sync --group ml`); production runs still use the classical detector until the
+integration plan lands.
+
+Full evidence, including the labelled sets, the visual labels, the no-imagery baseline and
+the learned detector's gate, in [`backend/eval/README.md`](backend/eval/README.md).
 
 Things learned on the way, already reflected in the code:
 

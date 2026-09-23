@@ -677,3 +677,131 @@ blobs, and a graded house lot is exactly that — so the detector's *largest* st
 lots that have been prepared for building but not yet built on. This is the concrete
 mechanism behind `precision @ top 1% = 0.0000`, and the failure mode a learned detector
 has to separate: bright, smooth, compact, recently disturbed ground versus a roof.
+
+## Learned detector — segmenter-v1 and the decision gate (2026-09-23)
+
+Plan: `docs/plans/2026-09-23-learned-change-detector.md`. A U-Net (ImageNet ResNet-34
+encoder) segments buildings in each year; the change is building area present in the
+target and absent from the base (one pixel of tolerance for misregistration), scored with
+the classical detector's curve, `structure_m2 / (structure_m2 + 400)`, behind the same
+`Detector` seam. Selected with `--detector segmentation`; `classical` stays the default and
+reproduces its earlier output exactly.
+
+### How it was trained, and why the score is independent
+
+```bash
+uv sync --group ml                                 # torch + segmentation-models-pytorch
+uv run --group ml ptax-eval train-data             # chips from the training AOIs only
+uv run --group ml ptax-eval train                  # writes eval/models/segmenter-v1.{pt,json}
+```
+
+- **Labels:** Microsoft's open US building footprints (Minnesota file, ODbL), burned onto
+  each chip's own 1.0 m grid. Chips are read through `read_parcel_uris`, the run job's own
+  reader, so training imagery is resampled exactly as inference imagery is.
+- **Where:** Richfield, Minnetonka, Brooklyn Park and Crystal — each ≥ 90% of dated
+  parcels built by 2000 (0.903–0.930), so a footprint marks a building standing in every
+  capture used. Edina (0.820) and three rural west-Hennepin candidates (0.44–0.72) failed
+  that check and were dropped. Every training AOI is ≥ 1 km from `nw-hennepin`, checked in
+  EPSG:26915 by `assert_disjoint_from_eval` at both data-build and training time.
+- **When:** NAIP 2010, 2015, 2019 and 2021 over the same ground. 1 100 training chips and
+  316 validation chips (256 × 256); validation is the trailing 20% of each AOI's tile
+  columns, the same tiles in every year. Six tiles were dropped by the label screen.
+- **Chosen on validation only:** 27 epochs, early-stopped with the best at epoch 22;
+  probability cutoff 0.40. Validation building IoU **0.588** — per year 2010 **0.612**,
+  2015 0.601, 2019 0.561, 2021 0.580 — and 0.476 on 48 px parcel-sized crops.
+- **Frozen before evaluation:** `eval/models/segmenter-v1.json` (committed) records
+  `weights_sha256` `95e57ba6…a55b57` and `frozen_at` 2026-09-23T17:10:48Z. The first score
+  against the visual labels ran at 17:11:10Z. The detector refuses weights whose hash
+  differs from the card; a retrain is a new candidate (`segmenter-v2`), never a
+  replacement.
+
+Every evaluation run of this candidate, not only the best:
+
+| Run | What | Result |
+|---|---|---|
+| 1 | `score --detector segmentation --labels …` | the figures below |
+| 2 | the same, after fixing the per-year report to read the segmenter's indicators | per-parcel results identical to run 1 |
+| 3 | `chips --all --ranked --limit 20 --markup --detector segmentation` | read below |
+
+No setting was changed after any of them.
+
+### Measured, at the 0.1795 county base rate
+
+`ptax-eval score eval/nw-hennepin-2010-2021.json --labels eval/visual-labels-nw-hennepin-2010-2021.json --detector segmentation`, all 300 parcels scored:
+
+| | classical | no-imagery baseline | **segmenter-v1** |
+|---|---|---|---|
+| Average precision | 0.2236 (95% CI 0.141–0.367) | 0.2578 | **0.5879 (95% CI 0.422–0.772)** |
+| Precision @ top 1% | 0.0000 | 1.0000 | **1.0000** |
+| Precision @ top 5% | 0.0000 | 0.3036 | **0.7856** |
+| Flag rate at defaults (0.3, 37.2 m²) | 0.3016 | — | **0.1425** |
+| Precision at defaults | 0.2874 | — | **0.6077** |
+| Recall at defaults | 0.4828 | — | **0.4823** |
+| `no_change` parcels flagged | 20 of 126 | — | **6 of 126** |
+
+Intervals are a stratified bootstrap (1 000 replicates, resampled within each stratum, weights
+recomputed per replicate), now printed by every `score` run.
+
+**Split by parcel size** (median 1 451 m²), weighted:
+
+| | classical AP | segmenter AP | segmenter precision @ top 1% |
+|---|---|---|---|
+| Below the median (150 parcels, 35 improved) | 0.648 | **0.980** | 1.000 |
+| At or above the median (150, 64 improved) | 0.212 | **0.540** | 1.000 |
+
+Small, parcel-only crops were the named inference risk; they are where the segmenter is
+strongest. Large parcels are harder for both detectors, and the gain there is the larger.
+
+**The 2010 domain shift did not appear.** On the 126 parcels labelled `no_change`, the
+segmenter's base-year building fraction (quartiles 0.000 / 0.020 / 0.093) matches the
+target year's (0.000 / 0.020 / 0.087): it reads 2010 roofs as it reads 2021 roofs.
+
+### The ≤2% / ≥60% product target
+
+Met on the point estimate, and fragile. At threshold 0.51 (structures ≥ 416 m²) the
+segmenter flags **1.70%** of the county at **precision 1.00, recall 0.095** — 14 sampled
+parcels, all genuinely improved. At 0.50 one more `negative_old` parcel enters, a false
+positive, and because each `negative_old` parcel stands for ~3 900 county parcels, precision
+falls to 0.67 at a 2.8% flag rate. Fourteen parcels is not enough to call that operating
+point settled; a second labelled area would.
+
+| threshold | flag rate | precision | recall |
+|---|---|---|---|
+| 0.30 | 0.1425 | 0.6077 | 0.4823 |
+| 0.40 | 0.0708 | 0.8613 | 0.3395 |
+| 0.50 | 0.0280 | 0.6710 | 0.1047 |
+| 0.60 | 0.0122 | 1.0000 | 0.0680 |
+
+### What it marks at the top of its ranking
+
+`out/chips/nw-hennepin-2010-2021/segmentation/ranked/`, read by eye and joined to the
+visual labels:
+
+- **19 of the top 20 are real improvements**, against 0 of the classical detector's top 13.
+- **Every red structure in the top 20 sits on a roof.** No graded lot, field stripe, dirt
+  track or dried pond appears — the classical detector's named failure is gone, even though
+  training saw little open field or bare soil.
+- **Driveway spill:** on several parcels (ranks 1, 12, 20) the structure runs from the
+  roof onto the pale driveway or pad beside it, inflating `structure_m2`. It moves scores,
+  not which parcels rank high.
+- **The one false positive (rank 16)** is a house already standing in 2010 that the
+  segmenter missed in the base year, so it was counted as new — the base-year miss the
+  domain-shift risk named, here as a single case rather than a pattern.
+
+### CPU cost
+
+Production workers are CPU-only. Over the 300 parcels on the dev machine's CPU (Apple
+M4 Max), one thread: `compare` — two inferences on a ≥ 256 px canvas — averages **73.6 ms**
+per parcel (p95 79.6 ms); reading both years averages 53.6 ms. A 200 000-parcel run is
+**4.1 CPU-hours of inference, 7.1 with reads**. A Fargate vCPU is likely slower than an M4
+core, so budget a multiple of that; it is still a CPU job, not a GPU one.
+
+### Decision: **pass**
+
+The gate required AP's 95% bootstrap lower bound above both 0.2236 and 0.2578 and precision
+@ top 1% above zero. The lower bound is **0.422** and precision @ top 1% is **1.0000**.
+`segmenter-v1` is the candidate for production integration — a per-run detector choice, the
+model in the worker image, run records naming the detector — which is a separate plan.
+Open before that ships: a second labelled evaluation area (the ≤ 2% target rests on 14
+parcels here, and one area cannot show generalisation), and the Fargate-measured inference
+time.

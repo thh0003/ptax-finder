@@ -102,3 +102,19 @@ def test_ranking_puts_the_highest_score_first_and_unscored_parcels_last() -> Non
 
     # Ties break on the parcel id so the same set always yields the same sheets.
     assert order == ["c", "a", "d", "e", "b"]
+
+
+def test_a_detector_aware_index_names_the_detector_and_a_blind_one_does_not(tmp_path) -> None:
+    """Sheets from two detectors must be told apart; the blind labelling index stays as it was."""
+    import json
+
+    from ptax.eval.chips import ChipEntry, write_index
+    from ptax.eval.dataset import POSITIVE
+
+    entry = ChipEntry("p1", POSITIVE, 0, 0, "a.png", score=0.5)
+    write_index(tmp_path / "aware.json", [entry], 2, detector="segmentation")
+    write_index(tmp_path / "blind.json", [entry], 2)
+
+    assert json.loads((tmp_path / "aware.json").read_text())["detector"] == "segmentation"
+    assert "detector" not in json.loads((tmp_path / "blind.json").read_text())
+

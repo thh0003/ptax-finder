@@ -1,0 +1,215 @@
+{
+  "architecture": "Unet",
+  "augmentation": {
+    "brightness": [
+      -25,
+      25
+    ],
+    "contrast": [
+      0.75,
+      1.25
+    ],
+    "crop_probability": 0.5,
+    "crop_px": [
+      24,
+      256
+    ],
+    "rot90_flip": true
+  },
+  "batch_size": 16,
+  "best_epoch": 22,
+  "chosen_on": "training validation split only (held-out tiles of the training AOIs)",
+  "cutoff": 0.4,
+  "cutoff_iou": {
+    "0.2": 0.5808,
+    "0.25": 0.5847,
+    "0.3": 0.5867,
+    "0.35": 0.5878,
+    "0.4": 0.5879,
+    "0.45": 0.5876,
+    "0.5": 0.5864,
+    "0.55": 0.5846,
+    "0.6": 0.5821,
+    "0.65": 0.5784,
+    "0.7": 0.5734,
+    "0.75": 0.5664,
+    "0.8": 0.5562
+  },
+  "data_manifest": "eval/cache/training/manifest.json",
+  "data_manifest_sha256": "c76765d4913b5aff70ca947ed06c90fc3893597d0841c0a59d8dcd1655d9538e",
+  "device": "mps",
+  "encoder": "resnet34",
+  "encoder_weights": "imagenet",
+  "epochs_run": 27,
+  "frozen_at": "2026-09-23T17:10:48+00:00",
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 0.9502,
+      "val_iou": 0.3749
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.66,
+      "val_iou": 0.4622
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.5904,
+      "val_iou": 0.4731
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.577,
+      "val_iou": 0.4999
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.5423,
+      "val_iou": 0.5123
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.5132,
+      "val_iou": 0.5243
+    },
+    {
+      "epoch": 7,
+      "train_loss": 0.4942,
+      "val_iou": 0.538
+    },
+    {
+      "epoch": 8,
+      "train_loss": 0.4908,
+      "val_iou": 0.5426
+    },
+    {
+      "epoch": 9,
+      "train_loss": 0.4768,
+      "val_iou": 0.532
+    },
+    {
+      "epoch": 10,
+      "train_loss": 0.4682,
+      "val_iou": 0.5303
+    },
+    {
+      "epoch": 11,
+      "train_loss": 0.4549,
+      "val_iou": 0.5563
+    },
+    {
+      "epoch": 12,
+      "train_loss": 0.4535,
+      "val_iou": 0.5592
+    },
+    {
+      "epoch": 13,
+      "train_loss": 0.436,
+      "val_iou": 0.5615
+    },
+    {
+      "epoch": 14,
+      "train_loss": 0.4304,
+      "val_iou": 0.5741
+    },
+    {
+      "epoch": 15,
+      "train_loss": 0.4358,
+      "val_iou": 0.5629
+    },
+    {
+      "epoch": 16,
+      "train_loss": 0.4206,
+      "val_iou": 0.5372
+    },
+    {
+      "epoch": 17,
+      "train_loss": 0.4245,
+      "val_iou": 0.5644
+    },
+    {
+      "epoch": 18,
+      "train_loss": 0.4197,
+      "val_iou": 0.5805
+    },
+    {
+      "epoch": 19,
+      "train_loss": 0.4281,
+      "val_iou": 0.5536
+    },
+    {
+      "epoch": 20,
+      "train_loss": 0.4281,
+      "val_iou": 0.562
+    },
+    {
+      "epoch": 21,
+      "train_loss": 0.4208,
+      "val_iou": 0.5746
+    },
+    {
+      "epoch": 22,
+      "train_loss": 0.4094,
+      "val_iou": 0.5864
+    },
+    {
+      "epoch": 23,
+      "train_loss": 0.4034,
+      "val_iou": 0.5733
+    },
+    {
+      "epoch": 24,
+      "train_loss": 0.4166,
+      "val_iou": 0.5807
+    },
+    {
+      "epoch": 25,
+      "train_loss": 0.4057,
+      "val_iou": 0.5653
+    },
+    {
+      "epoch": 26,
+      "train_loss": 0.4014,
+      "val_iou": 0.5725
+    },
+    {
+      "epoch": 27,
+      "train_loss": 0.3945,
+      "val_iou": 0.5801
+    }
+  ],
+  "input": "RGB uint8, ImageNet normalisation, zero-padded top-left to >= 256 px",
+  "learning_rate": 0.0003,
+  "loss": "masked BCE + soft Dice",
+  "max_epochs": 30,
+  "name": "segmenter-v1",
+  "note": "MPS kernels are not bit-deterministic; a rerun reproduces the recipe, not the exact weights. The weights_sha256 identifies this run's weights.",
+  "patience": 5,
+  "resolution_m": 1.0,
+  "seed": 20260923,
+  "segmentation_models_pytorch": "0.5.0",
+  "small_crop_px": 48,
+  "stopped": "early stop: no validation IoU gain for 5 epochs",
+  "torch": "2.14.0",
+  "train_chips": 1100,
+  "train_chips_per_year": {
+    "2010": 275,
+    "2015": 275,
+    "2019": 275,
+    "2021": 275
+  },
+  "training_seconds": 236,
+  "validation_chips": 316,
+  "validation_iou": 0.5879,
+  "validation_iou_at_0_5": 0.5864,
+  "validation_iou_per_year": {
+    "2010": 0.6116,
+    "2015": 0.6011,
+    "2019": 0.5606,
+    "2021": 0.5798
+  },
+  "validation_iou_small_crops": 0.4759,
+  "weights": "segmenter-v1.pt",
+  "weights_sha256": "95e57ba6adace5039b42bd4fb0eccc2051db8585a92fae3a33a842d111a55b57"
+}

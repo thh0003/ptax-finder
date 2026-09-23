@@ -2,7 +2,8 @@
 
     ptax-eval build --aoi nw-hennepin --base-year 2010 --target-year 2021
     ptax-eval fetch eval/nw-hennepin-2010-2021.json --verify
-    ptax-eval score eval/nw-hennepin-2010-2021.json
+    ptax-eval score eval/nw-hennepin-2010-2021.json [--detector segmentation]
+    ptax-eval train-data && ptax-eval train      # the segmenter; needs `--group ml`
 
 This is development tooling. It never touches the database, the job queue or S3.
 """
@@ -21,13 +22,14 @@ import typer
 from ptax.api.runs import DEFAULT_MIN_NEW_AREA_M2, DEFAULT_THRESHOLD
 from ptax.detection.detector import (
     ChangeResult,
-    ClassicalDetector,
+    Detector,
     InsufficientCoverage,
     ParcelRaster,
     RadiometricFit,
     fit_radiometry,
     paired_samples,
 )
+from ptax.detection.registry import DEFAULT_DETECTOR, DETECTORS, get_detector
 from ptax.detection.run import MIN_RESOLUTION_M
 from ptax.eval import sources
 from ptax.eval.cache import (
@@ -67,11 +69,14 @@ from ptax.eval.metrics import (
     Summary,
     apply_audit,
     average_precision,
+    bootstrap_ap_interval,
     parcel_weights,
     precision_at_top_fraction,
     stratum_counts,
     summarise,
 )
+from ptax.eval.training_data import DEFAULT_YEARS as DEFAULT_TRAIN_YEARS
+from ptax.eval.training_data import TRAINING_DIR, build_training_data
 from ptax.imagery.reader import read_parcel_uris
 
 app = typer.Typer(help="ptax-finder detector evaluation harness", no_args_is_help=True)
@@ -79,6 +84,7 @@ app = typer.Typer(help="ptax-finder detector evaluation harness", no_args_is_hel
 #: Sets and their caches live beside the backend package, not in tests/: they are measured
 #: evidence rather than fixtures, and the cache is far too large to commit.
 EVAL_DIR = Path("eval")
+MODELS_DIR = EVAL_DIR / "models"
 DEFAULT_SEED = 20260922
 
 #: Cap on how many per-parcel problems `--verify` prints before it stops listing them.
@@ -91,6 +97,20 @@ def _set_path(aoi: str, base_year: int, target_year: int) -> Path:
 
 def _cache_dir(set_path: Path) -> Path:
     return set_path.parent / "cache" / set_path.stem
+
+
+#: The evaluation compares 2010 against 2021, so training must include 2010-vintage NAIP.
+BASE_YEAR_FOR_TRAINING = 2010
+
+_DETECTOR_HELP = f"detector to evaluate; one of: {', '.join(DETECTORS)}"
+
+
+def _detector(name: str) -> Detector:
+    """The named detector, with an unknown name reported as a usage error."""
+    try:
+        return get_detector(name)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
 
 
 @app.command("build")
@@ -261,21 +281,26 @@ def score(
         help="visual labels; judges the detector on what the imagery shows, not BUILD_YR",
     ),
     out: Path | None = typer.Option(None, help="where to write per-parcel results"),
+    detector_name: str = typer.Option(DEFAULT_DETECTOR, "--detector", help=_DETECTOR_HELP),
 ) -> None:
-    """Score every cached parcel with the current detector and report the metrics."""
+    """Score every cached parcel with the chosen detector and report the metrics."""
+    detector = _detector(detector_name)
     eval_set = read_set(set_path)
     entries = read_manifest(_cache_dir(set_path) / "manifest.json")
     if not entries:
         raise typer.BadParameter(f"no cache for {set_path}; run `ptax-eval fetch` first")
 
     visual = read_visual_labels(labels) if labels is not None else None
-    results, indicators = _score_set(eval_set, entries, threshold, min_new_area)
+    results, indicators = _score_set(eval_set, entries, threshold, min_new_area, detector)
     results = _apply_visual_labels(results, visual)
     summary = summarise(results, eval_set.county_strata)
     weights = summary.weights
 
+    # The detector is in the name so two detectors' runs never overwrite each other.
     destination = out or (
-        EVAL_DIR / "out" / f"{set_path.stem}-{datetime.now(UTC):%Y%m%dT%H%M%SZ}.json"
+        EVAL_DIR
+        / "out"
+        / f"{set_path.stem}-{detector_name}-{datetime.now(UTC):%Y%m%dT%H%M%SZ}.json"
     )
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(
@@ -283,6 +308,7 @@ def score(
             {
                 "set": str(set_path),
                 "labels": str(labels) if labels is not None else None,
+                "detector": detector_name,
                 "threshold": threshold,
                 "min_new_area_m2": min_new_area,
                 "scored_at": datetime.now(UTC).isoformat(),
@@ -305,7 +331,7 @@ def score(
         + "\n"
     )
 
-    _report(eval_set, summary, results, weights, threshold, min_new_area)
+    _report(eval_set, summary, results, weights, threshold, min_new_area, detector_name)
     if visual is not None:
         _report_visual_labels(eval_set, visual)
     _report_no_imagery_baseline(eval_set, visual)
@@ -363,9 +389,9 @@ def _score_set(
     entries: dict[str, CacheEntry],
     threshold: float,
     min_new_area: float,
+    detector: Detector,
 ) -> tuple[list[ScoredParcel], dict[str, dict[str, Any]]]:
     """Run the detector over every sampled parcel, on the run job's comparison grid."""
-    detector = ClassicalDetector()
     resolution = max(*(e.gsd_m for e in entries.values()), MIN_RESOLUTION_M)
     results: list[ScoredParcel] = []
     indicators: dict[str, dict[str, Any]] = {}
@@ -440,7 +466,10 @@ def _announced_fit(
 
 
 def _chip_detector(
-    eval_set: EvalSet, entries: dict[str, CacheEntry], resolution: float
+    eval_set: EvalSet,
+    entries: dict[str, CacheEntry],
+    resolution: float,
+    detector: Detector,
 ) -> Callable[[ParcelRaster, ParcelRaster], ChangeResult | None]:
     """The detector exactly as `score` runs it -- same grid, same run-level fit.
 
@@ -449,7 +478,6 @@ def _chip_detector(
     minimum structure size only decide `candidate`; neither the masks nor the score
     depend on them, so the shipped defaults are used.
     """
-    detector = ClassicalDetector()
     fit = _announced_fit(eval_set, _pair_reader(eval_set, entries, resolution))
 
     def detect(base: ParcelRaster, target: ParcelRaster) -> ChangeResult | None:
@@ -476,9 +504,14 @@ def _rank(scores: dict[str, float | None]) -> list[str]:
     return sorted(scores, key=lambda pid: (scores[pid] is None, -(scores[pid] or 0.0), pid))
 
 
-#: Indicators whose per-year distributions expose a capture-level bias. Plan B attributed
-#: `target_builtup_frac` 0.937 to texture scale; this is what confirms or refutes it.
-_YEAR_STATISTICS = ("base_builtup_frac", "target_builtup_frac")
+#: Indicators whose per-year distributions expose a capture-level bias, per detector.
+#: Plan B attributed `target_builtup_frac` 0.937 to texture scale; this is what confirms or
+#: refutes it. For the segmenter, a base-year building fraction well below the target's
+#: would mean it under-reads 2010 roofs and calls standing buildings new.
+_YEAR_STATISTICS = (
+    ("base_builtup_frac", "target_builtup_frac"),
+    ("base_building_frac", "target_building_frac"),
+)
 
 
 def _quartiles(values: list[float]) -> tuple[float, float, float]:
@@ -500,11 +533,13 @@ def _report(
     weights: dict[str, float],
     threshold: float,
     min_new_area: float,
+    detector_name: str = DEFAULT_DETECTOR,
 ) -> None:
     county = eval_set.county_strata
     typer.echo(
         f"\n{eval_set.aoi} {eval_set.base_year} -> {eval_set.target_year}"
-        f"  (threshold {threshold}, min_new_area {min_new_area} m2)"
+        f"  ({detector_name} detector, threshold {threshold},"
+        f" min_new_area {min_new_area} m2)"
     )
     typer.echo(f"  scored {summary.scored}, skipped {summary.skipped}")
 
@@ -527,6 +562,8 @@ def _report(
 
     typer.echo("\nthreshold-free (weighted)")
     typer.echo(f"  average precision    {average_precision(results, weights):.4f}")
+    low, high = bootstrap_ap_interval(results, county, seed=DEFAULT_SEED)
+    typer.echo(f"    95% interval       {low:.4f} - {high:.4f}  (stratified bootstrap)")
     typer.echo(f"  precision @ top 1%   {precision_at_top_fraction(results, weights, 0.01):.4f}")
     typer.echo(f"  precision @ top 5%   {precision_at_top_fraction(results, weights, 0.05):.4f}")
 
@@ -545,17 +582,21 @@ def _report_year_bias(indicators: dict[str, dict[str, Any]]) -> None:
     property of the captures rather than by eleven years of construction; a gap that has
     closed means the remaining error is somewhere else.
     """
-    if not indicators:
+    keys = next(
+        (pair for pair in _YEAR_STATISTICS if any(pair[0] in i for i in indicators.values())),
+        None,
+    )
+    if keys is None:
         return
     typer.echo("\nper-year built-up fraction (lower quartile / median / upper quartile)")
     medians: dict[str, float] = {}
-    for key in _YEAR_STATISTICS:
+    for key in keys:
         values = [float(i[key]) for i in indicators.values() if key in i]
         low, median, high = _quartiles(values)
         medians[key] = median
         typer.echo(f"  {key:22s} {low:.3f} / {median:.3f} / {high:.3f}   (n={len(values)})")
 
-    gap = medians.get("target_builtup_frac", 0.0) - medians.get("base_builtup_frac", 0.0)
+    gap = medians[keys[1]] - medians[keys[0]]
     typer.echo(f"  median gap (target - base) {gap:+.3f}")
     typer.echo(
         "  a gap this size is a capture-level bias, not construction"
@@ -588,6 +629,9 @@ def chips(
     limit: int = typer.Option(
         0, "--limit", min=0, help="with --all: render only the first N parcels (0 = all)"
     ),
+    detector_name: str = typer.Option(
+        DEFAULT_DETECTOR, "--detector", help=f"with --markup or --ranked: {_DETECTOR_HELP}"
+    ),
 ) -> None:
     """Render base/target chip pairs and a contact sheet for auditing the labels.
 
@@ -597,19 +641,31 @@ def chips(
     """
     if (ranked or limit) and not every:
         raise typer.BadParameter("--ranked and --limit apply to --all sheets")
+    aware = markup or ranked
+    if detector_name != DEFAULT_DETECTOR and not aware:
+        raise typer.BadParameter("--detector applies to --markup or --ranked sheets")
+    detector = _detector(detector_name) if aware else None
     eval_set = read_set(set_path)
     entries = read_manifest(_cache_dir(set_path) / "manifest.json")
     if not entries:
         raise typer.BadParameter(f"no cache for {set_path}; run `ptax-eval fetch` first")
 
     out_dir = EVAL_DIR / "out" / "chips" / set_path.stem
-    # Never write detector-aware sheets over the blind labelling sheets.
+    # Never write detector-aware sheets over the blind labelling sheets, nor one
+    # detector's sheets over another's. The classical detector keeps its original folder.
+    if aware and detector_name != DEFAULT_DETECTOR:
+        out_dir = out_dir / detector_name
     if ranked:
         out_dir = out_dir / "ranked"
     elif markup:
         out_dir = out_dir / "markup"
     resolution = max(*(e.gsd_m for e in entries.values()), MIN_RESOLUTION_M)
-    detect = _chip_detector(eval_set, entries, resolution) if (markup or ranked) else None
+    detect = (
+        _chip_detector(eval_set, entries, resolution, detector)
+        if detector is not None
+        else None
+    )
+    shown = detector_name if aware else None
     if every:
         _chip_sheets(
             eval_set,
@@ -622,6 +678,7 @@ def chips(
             markup=markup,
             ranked=ranked,
             limit=limit,
+            detector_name=shown,
         )
         return
     # Draw evenly across strata: the set is already equal-quota, and the noise estimate
@@ -666,9 +723,57 @@ def chips(
 
     sheet_path = out_dir / "contact-sheet.png"
     write_png(sheet_path, contact_sheet(tiles, columns=columns))
-    write_index(out_dir / "index.json", index, columns)
+    write_index(out_dir / "index.json", index, columns, detector=shown)
     typer.echo(f"wrote {len(tiles)} chip pairs and {sheet_path}")
     typer.echo(f"  index: {out_dir / 'index.json'}")
+
+
+@app.command("train-data")
+def train_data(
+    year: list[int] = typer.Option(
+        list(DEFAULT_TRAIN_YEARS), "--year", help="NAIP years to draw chips from (repeatable)"
+    ),
+    out: Path = typer.Option(TRAINING_DIR, help="where shards and the manifest are written"),
+) -> None:
+    """Cut segmenter training chips from the training AOIs -- never the evaluation AOI."""
+    if BASE_YEAR_FOR_TRAINING not in year or len(set(year)) < 3:
+        raise typer.BadParameter(
+            f"use at least three years including {BASE_YEAR_FOR_TRAINING}, the evaluation's"
+            " base-year vintage"
+        )
+    manifest = build_training_data(out, sorted(set(year)), echo=typer.echo)
+    kept = [name for name, record in manifest["aois"].items() if "dropped" not in record]
+    if not kept:
+        typer.echo("every training AOI was dropped; no training data written", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(f"manifest: {out / 'manifest.json'} ({len(kept)} AOIs)")
+
+
+@app.command("train")
+def train_segmenter(
+    name: str = typer.Option(
+        "segmenter-v1", help="candidate name; an existing card is frozen and never replaced"
+    ),
+    manifest: Path = typer.Option(
+        TRAINING_DIR / "manifest.json", help="training-data manifest from `train-data`"
+    ),
+    models_dir: Path = typer.Option(MODELS_DIR, help="where weights and the card are written"),
+    device: str | None = typer.Option(None, help="torch device; default mps, else cpu"),
+) -> None:
+    """Train the building segmenter and freeze it with a model card (needs `--group ml`)."""
+    # Imported here, not at module level: torch is in the optional `ml` group only.
+    from ptax.learn.train import train
+
+    try:
+        card = train(manifest, models_dir, name, device=device, echo=typer.echo)
+    except FileExistsError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    typer.echo(
+        f"froze {name}: validation IoU {card['validation_iou']} at cutoff {card['cutoff']},"
+        f" per year {card['validation_iou_per_year']}, {card['stopped']}"
+        f" after {card['epochs_run']} epochs"
+    )
+    typer.echo(f"  card: {models_dir / (name + '.json')}")
 
 
 def _report_audited(
@@ -775,6 +880,7 @@ def _chip_sheets(
     markup: bool = False,
     ranked: bool = False,
     limit: int = 0,
+    detector_name: str | None = None,
 ) -> None:
     """Render the whole set as numbered contact sheets, for labelling every parcel by eye.
 
@@ -845,7 +951,7 @@ def _chip_sheets(
             flush()
     flush()
 
-    write_index(out_dir / "sheet-index.json", index, 2)
+    write_index(out_dir / "sheet-index.json", index, 2, detector=detector_name)
     typer.echo(f"wrote {sheet_no} sheets covering {len(index)} parcels in {out_dir}")
 
 

@@ -322,3 +322,47 @@ def test_an_audit_correction_keeps_the_parcel_s_visual_label() -> None:
     assert corrected[0].stratum == POSITIVE  # the audit's correction applies
     assert corrected[0].positive is False  # the eye's verdict does not change
     assert corrected[0].improved is False
+
+
+def _ranked_sample(size: int, seed: int) -> list[ScoredParcel]:
+    """A noisy ranker: positives tend to score higher, but not always."""
+    import random
+
+    rng = random.Random(seed)
+    parcels: list[ScoredParcel] = []
+    for stratum in (POSITIVE, NEGATIVE_OLD, NEGATIVE_FUTURE):
+        for i in range(size):
+            improved = stratum == POSITIVE
+            score = rng.random() + (0.5 if improved else 0.0)
+            parcels.append(ScoredParcel(f"{stratum}-{i}", stratum, score, score > 0.8))
+    return parcels
+
+
+def test_the_bootstrap_interval_is_reproducible_for_a_fixed_seed() -> None:
+    from ptax.eval.metrics import bootstrap_ap_interval
+
+    parcels = _ranked_sample(40, seed=1)
+
+    assert bootstrap_ap_interval(parcels, COUNTY, seed=7) == bootstrap_ap_interval(
+        parcels, COUNTY, seed=7
+    )
+
+
+def test_the_bootstrap_interval_contains_the_point_estimate() -> None:
+    from ptax.eval.metrics import bootstrap_ap_interval
+
+    parcels = _ranked_sample(40, seed=2)
+    point = average_precision(parcels, summarise(parcels, COUNTY).weights)
+
+    low, high = bootstrap_ap_interval(parcels, COUNTY, seed=7)
+
+    assert low < point < high
+
+
+def test_the_bootstrap_interval_narrows_as_the_sample_grows() -> None:
+    from ptax.eval.metrics import bootstrap_ap_interval
+
+    small_low, small_high = bootstrap_ap_interval(_ranked_sample(20, seed=3), COUNTY, seed=7)
+    large_low, large_high = bootstrap_ap_interval(_ranked_sample(400, seed=3), COUNTY, seed=7)
+
+    assert large_high - large_low < (small_high - small_low) / 2

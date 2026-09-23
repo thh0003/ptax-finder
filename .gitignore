@@ -23,6 +23,8 @@ infra/*.d.ts
 # Detector evaluation: the labelled sets are committed, their imagery and outputs are not
 backend/eval/cache/
 backend/eval/out/
+# Trained weights are large and reproducible from the committed model card; the card stays tracked
+backend/eval/models/*.pt
 
 # Env / local state
 .env

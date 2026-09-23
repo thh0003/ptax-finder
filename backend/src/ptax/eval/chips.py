@@ -213,8 +213,14 @@ def contact_sheet(chips: list[np.ndarray], columns: int = 5) -> np.ndarray:
     return sheet
 
 
-def write_index(path: Path, entries: list[ChipEntry], columns: int) -> None:
-    """Map contact-sheet positions back to parcels, so an audit can name what it saw."""
+def write_index(
+    path: Path, entries: list[ChipEntry], columns: int, detector: str | None = None
+) -> None:
+    """Map contact-sheet positions back to parcels, so an audit can name what it saw.
+
+    ``detector`` names the detector whose scores or markup the sheets show. The blind
+    labelling sheets have none, and their index keeps exactly its original shape.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     payload: dict[str, Any] = {
         "columns": columns,
@@ -231,4 +237,6 @@ def write_index(path: Path, entries: list[ChipEntry], columns: int) -> None:
             for e in entries
         ],
     }
+    if detector is not None:
+        payload["detector"] = detector
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
