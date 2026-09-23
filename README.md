@@ -194,6 +194,31 @@ A comparison run over that imagery completes, but the v1 classical detector flag
 measurement**: Plan D found the same-resolution control showed a *larger* year gap, and the
 real defect was that bare ground classified as built-up.
 
+### Verified parcel change viewer deployment
+
+2026-09-23, `us-east-1`: `PtaxCompute` updated to `UPDATE_COMPLETE`; API and worker both
+1/1 on task definition revision `:6`. Migrations **0003 → 0004 ran in the API container at
+start** against Aurora and the app came up clean:
+
+```
+migrating database to head
+Running upgrade 0002 -> 0003, run_parcels: where the run found the change
+Running upgrade 0003 -> 0004, run_parcels: an index the score-ordered parcel list can actually use
+migrations complete
+Application startup complete.
+```
+
+`/api/health` returns `{"status":"ok","db":"ok"}`, the SPA serves 200, and all three new
+routes are live — `GET /api/runs/{run}/parcels`, `.../parcels/{parcel}` and
+`.../parcels/{parcel}/overlay.png` each answer **401** without a token while a genuinely
+absent path answers 404, so they are routed rather than swallowed by a catch-all. The
+`cdk diff` beforehand touched only the two container image digests: no infrastructure,
+IAM or security-group change.
+
+Not exercised on the deployed stack: the viewer against a real signed-in session. That
+needs a Cognito password, which this workflow does not enter. The four E2E scenarios ran
+against a local stack carrying the same image content — see the plan's E2E Results.
+
 ### Verified detector accuracy
 
 2026-09-22, `us-east-1`, tenant `Demo County`, over the same 25 parcels and the same NAIP
