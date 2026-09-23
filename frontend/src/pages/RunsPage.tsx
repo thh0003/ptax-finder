@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { SyntheticEvent } from "react";
+import { Link } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { listYears, yearLabel, type ImageryYear } from "../api/imagery";
 import {
@@ -8,13 +9,118 @@ import {
   RUN_ACTIVE,
   cancelRun,
   createRun,
+  appendPage,
+  listRunParcels,
   listRuns,
   type Run,
+  type RunParcel,
 } from "../api/runs";
 import { useAuth } from "../auth/AuthContext";
 import StatusChip from "../components/StatusChip";
 
 const POLL_MS = 2000;
+
+/** How many parcels one "load more" adds. */
+const PARCEL_PAGE = 25;
+
+/**
+ * A run's parcels, highest score first, as the way into the parcel viewer.
+ *
+ * Deliberately just a ranked list: statuses, filters and confirm/dismiss belong to the
+ * review queue (Plan C), which will replace this entry point rather than extend it.
+ * Shown only for a finished run — a running one has partial results, and ranking those
+ * invites acting on a run that has not seen the rest of the county yet.
+ */
+function RunParcels({ run }: { run: Run }) {
+  const [rows, setRows] = useState<RunParcel[] | null>(null);
+  const [total, setTotal] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadMore = useCallback(async () => {
+    setBusy(true);
+    try {
+      const page = await listRunParcels(run.id, {
+        limit: PARCEL_PAGE,
+        offset: rows?.length ?? 0,
+      });
+      setRows((current) => appendPage(current ?? [], page));
+      setTotal(page.total);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load parcels");
+    } finally {
+      setBusy(false);
+    }
+  }, [run.id, rows]);
+
+  if (rows === null) {
+    return (
+      <button
+        type="button"
+        onClick={() => void loadMore()}
+        disabled={busy}
+        className="rounded border border-slate-300 px-3 py-1 text-sm hover:bg-slate-100"
+        data-testid="show-parcels"
+      >
+        Show parcels
+      </button>
+    );
+  }
+
+  return (
+    <div className="space-y-2" data-testid="parcel-list">
+      {error && (
+        <p role="alert" className="text-sm text-red-800">
+          {error}
+        </p>
+      )}
+      <table className="w-full text-left text-sm">
+        <thead className="text-xs text-slate-500">
+          <tr>
+            <th className="py-1 font-medium">Parcel</th>
+            <th className="py-1 font-medium">Score</th>
+            <th className="py-1 font-medium">Flagged</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {rows.map((parcel) => (
+            <tr key={parcel.parcel_id} data-testid="parcel-row">
+              <td className="py-1">
+                <Link
+                  to={`/runs/${run.id}/parcels/${parcel.parcel_id}`}
+                  className="underline"
+                  data-testid="parcel-link"
+                >
+                  {parcel.parcel_ref}
+                </Link>
+              </td>
+              <td className="py-1 tabular-nums">
+                {parcel.score === null ? "not scored" : parcel.score.toFixed(3)}
+              </td>
+              <td className="py-1">{parcel.candidate ? "yes" : ""}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="flex items-center gap-3 text-xs text-slate-500">
+        <span>
+          {rows.length} of {total}
+        </span>
+        {rows.length < total && (
+          <button
+            type="button"
+            onClick={() => void loadMore()}
+            disabled={busy}
+            className="rounded border border-slate-300 px-2 py-0.5 hover:bg-slate-100"
+            data-testid="load-more-parcels"
+          >
+            Load more
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function RunsPage() {
   const { state } = useAuth();
@@ -256,6 +362,9 @@ export default function RunsPage() {
                   <p className="text-sm text-red-800" data-testid="run-error">
                     {run.error}
                   </p>
+                )}
+                {!RUN_ACTIVE.includes(run.status) && run.parcels_processed > 0 && (
+                  <RunParcels run={run} />
                 )}
               </li>
             ))}

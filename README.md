@@ -66,9 +66,22 @@ admin create an upload year (year + optional provider), add GeoTIFF/COG files to
 finish the upload; each year shows its status, band count, resolution, coverage of the
 county footprint and the number of parcels without coverage. The **Runs** page compares a
 base year with a later target year over every parcel and reports processed / candidate /
-skipped counts. Uploaded imagery must be a GeoTIFF or COG with a CRS, 3 or 4 bands
+skipped counts. A finished run lists its parcels highest score first; opening one shows the
+**parcel change viewer** at `/runs/{run}/parcels/{parcel}` — the base year, the target year,
+and the target year with the new structures the run detected drawn on it, alongside the
+score and the measurements behind it. The scoring structure and the rest of the detected
+new built-up area are drawn in different colours, and the markup can be toggled off to
+check it against the bare imagery. A parcel the run skipped says why instead of showing an
+empty pane. Uploaded imagery must be a GeoTIFF or COG with a CRS, 3 or 4 bands
 (RGB or RGB+NIR), `uint8` or `uint16` pixels, 1 m/px or finer, and at most 5 GB per file;
 everything is stored as a uint8 COG under `tenants/<tenant>/imagery/`.
+
+A run records **where** it found the change, not just how much: the detected new built-up
+area and the single structure the score rests on are stored as polygons on `run_parcels`
+when the parcel is scored. The viewer draws what the run recorded, never a fresh
+detection — so a decision keeps matching the picture it was made from while the detector
+changes underneath. Runs completed before this shipped keep their scores and show no
+markup rather than one re-derived by today's code.
 
 Locally `NAIP_SOURCE` defaults to `fixture`: the NAIP list comes from the small synthetic
 years in `backend/tests/fixtures/imagery/` (`make imagery-fixtures` regenerates them), so
@@ -180,6 +193,31 @@ A comparison run over that imagery completes, but the v1 classical detector flag
 (resampling the finer year under the texture threshold) was later **refuted by
 measurement**: Plan D found the same-resolution control showed a *larger* year gap, and the
 real defect was that bare ground classified as built-up.
+
+### Verified parcel change viewer deployment
+
+2026-09-23, `us-east-1`: `PtaxCompute` updated to `UPDATE_COMPLETE`; API and worker both
+1/1 on task definition revision `:6`. Migrations **0003 → 0004 ran in the API container at
+start** against Aurora and the app came up clean:
+
+```
+migrating database to head
+Running upgrade 0002 -> 0003, run_parcels: where the run found the change
+Running upgrade 0003 -> 0004, run_parcels: an index the score-ordered parcel list can actually use
+migrations complete
+Application startup complete.
+```
+
+`/api/health` returns `{"status":"ok","db":"ok"}`, the SPA serves 200, and all three new
+routes are live — `GET /api/runs/{run}/parcels`, `.../parcels/{parcel}` and
+`.../parcels/{parcel}/overlay.png` each answer **401** without a token while a genuinely
+absent path answers 404, so they are routed rather than swallowed by a catch-all. The
+`cdk diff` beforehand touched only the two container image digests: no infrastructure,
+IAM or security-group change.
+
+Not exercised on the deployed stack: the viewer against a real signed-in session. That
+needs a Cognito password, which this workflow does not enter. The four E2E scenarios ran
+against a local stack carrying the same image content — see the plan's E2E Results.
 
 ### Verified detector accuracy
 

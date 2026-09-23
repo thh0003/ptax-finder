@@ -488,3 +488,82 @@ def test_structure_size_gates_candidacy_at_min_new_area_m2() -> None:
     assert under.candidate is False
     assert over.candidate is True
     assert over.indicators["structure_m2"] > under.indicators["structure_m2"]
+
+
+# --- The masks the score was computed from ---------------------------------------------
+#
+# `compare` measured the new built-up area and picked the largest compact blob from it,
+# then discarded both and reported only numbers. The viewer needs to draw exactly what was
+# scored, so the masks now travel out with the result. Anything recomputed later would be
+# a different detector's answer wearing this run's score.
+
+
+def test_compare_returns_the_structure_mask_its_score_came_from() -> None:
+    base = _mottled()
+    target = _with_roof(base, 30, 30, h=20, w=20, colour=LIGHT_ROOF)
+
+    result = ClassicalDetector().compare(
+        base, target, threshold=FIXTURE_THRESHOLD, min_new_area_m2=DEFAULT_MIN_NEW_AREA_M2
+    )
+
+    assert result.structure_mask is not None
+    px_area = base.resolution_m * base.resolution_m
+    # The mask must account for the reported area exactly -- this is the tie between the
+    # picture a reviewer sees and the number printed beside it.
+    assert result.structure_mask.sum() * px_area == pytest.approx(
+        result.indicators["structure_m2"], abs=px_area
+    )
+
+
+def test_the_structure_mask_is_a_subset_of_the_new_builtup_mask() -> None:
+    base = _mottled()
+    target = _with_roof(base, 30, 30, h=20, w=20, colour=LIGHT_ROOF)
+
+    result = ClassicalDetector().compare(
+        base, target, threshold=FIXTURE_THRESHOLD, min_new_area_m2=DEFAULT_MIN_NEW_AREA_M2
+    )
+
+    assert result.new_builtup_mask is not None and result.structure_mask is not None
+    # Every scoring pixel is a new-built-up pixel; the reverse need not hold.
+    assert not (result.structure_mask & ~result.new_builtup_mask).any()
+
+
+def test_the_new_builtup_mask_accounts_for_the_reported_new_builtup_area() -> None:
+    base = _mottled()
+    target = _with_roof(base, 30, 30, h=20, w=20, colour=LIGHT_ROOF)
+
+    result = ClassicalDetector().compare(
+        base, target, threshold=FIXTURE_THRESHOLD, min_new_area_m2=DEFAULT_MIN_NEW_AREA_M2
+    )
+
+    assert result.new_builtup_mask is not None
+    px_area = base.resolution_m * base.resolution_m
+    assert result.new_builtup_mask.sum() * px_area == pytest.approx(
+        result.indicators["new_builtup_m2"], abs=px_area
+    )
+
+
+def test_unchanged_ground_yields_an_empty_structure_mask_not_none() -> None:
+    """An empty mask is a measurement; None would be indistinguishable from "not run"."""
+    base = _mottled()
+
+    result = ClassicalDetector().compare(
+        base, base, threshold=FIXTURE_THRESHOLD, min_new_area_m2=DEFAULT_MIN_NEW_AREA_M2
+    )
+
+    assert result.structure_mask is not None
+    assert not result.structure_mask.any()
+
+
+def test_the_masks_share_the_comparison_grid_so_they_can_be_georeferenced() -> None:
+    """Both masks must be on the raster's own grid, or the stored polygons land elsewhere."""
+    base = _mottled()
+    target = _with_roof(base, 30, 30, h=20, w=20, colour=LIGHT_ROOF)
+
+    result = ClassicalDetector().compare(
+        base, target, threshold=FIXTURE_THRESHOLD, min_new_area_m2=DEFAULT_MIN_NEW_AREA_M2
+    )
+
+    assert result.new_builtup_mask is not None and result.structure_mask is not None
+    assert result.new_builtup_mask.shape == base.data.shape[1:]
+    assert result.structure_mask.shape == base.data.shape[1:]

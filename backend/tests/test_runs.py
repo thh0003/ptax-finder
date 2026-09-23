@@ -2,7 +2,7 @@ import uuid
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from ptax import worker
@@ -262,3 +262,335 @@ def test_run_needs_ready_years(
     response = _start(client, headers, y2021["id"], queued_id)
     assert response.status_code == 422
     assert "not ready" in response.json()["detail"]
+
+
+# --- The run records where it found the change -----------------------------------------
+#
+# A score alone cannot be checked by a reviewer, and a markup recomputed later would be
+# today's detector answering for a run scored by older code. The masks are therefore
+# stored with the score, in the same committed batch.
+
+
+def _geom_area_m2(db: Session, run_id: str, ref_suffix: str, column) -> float | None:
+    """Area of a stored run-parcel geometry, measured in its local UTM zone."""
+    row = db.execute(
+        select(column, func.ST_Y(func.ST_Centroid(column)), func.ST_X(func.ST_Centroid(column)))
+        .where(RunParcel.run_id == uuid.UUID(run_id))
+        .where(RunParcel.parcel_ref.like(f"%{ref_suffix}"))
+    ).first()
+    if row is None or row[0] is None:
+        return None
+    # ST_Area over geography gives square metres without picking a zone by hand.
+    return db.execute(
+        select(func.ST_Area(func.Geography(column)))
+        .where(RunParcel.run_id == uuid.UUID(run_id))
+        .where(RunParcel.parcel_ref.like(f"%{ref_suffix}"))
+    ).scalar_one()
+
+
+def test_a_scored_parcel_stores_the_area_the_run_detected(
+    client: TestClient, db: Session, tenant_with_admin, years
+) -> None:
+    headers = tenant_with_admin["admin_headers"]
+    run = _start(
+        client, headers, years[2021]["id"], years[2023]["id"], threshold=FIXTURE_THRESHOLD
+    ).json()
+    drain_queue(db)
+    assert _get(client, headers, run["id"])["status"] == "succeeded"
+
+    rows = {
+        r.parcel_ref[-6:]: r
+        for r in db.execute(
+            select(RunParcel).where(RunParcel.run_id == uuid.UUID(run["id"]))
+        ).scalars().all()
+    }
+
+    # 000003 is one of the three parcels that gained a planted roof.
+    flagged = rows["000003"]
+    assert flagged.structure_geom is not None, "a flagged parcel must record what it flagged"
+    assert flagged.new_builtup_geom is not None
+
+    # The stored polygon has to account for the score printed beside it.
+    stored_m2 = _geom_area_m2(db, run["id"], "000003", RunParcel.structure_geom)
+    assert stored_m2 == pytest.approx(flagged.indicators["structure_m2"], rel=0.05)
+
+
+def test_a_parcel_with_nothing_detected_stores_no_geometry(
+    client: TestClient, db: Session, tenant_with_admin, years
+) -> None:
+    """NULL, not an empty shape: most of a county detects nothing and pays this per row."""
+    headers = tenant_with_admin["admin_headers"]
+    run = _start(
+        client, headers, years[2021]["id"], years[2023]["id"], threshold=FIXTURE_THRESHOLD
+    ).json()
+    drain_queue(db)
+
+    quiet = db.execute(
+        select(RunParcel)
+        .where(RunParcel.run_id == uuid.UUID(run["id"]), RunParcel.candidate.is_(False))
+        .where(RunParcel.skipped_reason.is_(None))
+    ).scalars().all()
+    assert quiet, "expected at least one scored, unflagged parcel"
+    unmarked = [r for r in quiet if r.structure_geom is None]
+    assert unmarked, "a parcel that detected nothing must store NULL geometry"
+
+
+def test_a_skipped_parcel_stores_no_geometry(
+    client: TestClient, db: Session, tenant_with_admin, years
+) -> None:
+    headers = tenant_with_admin["admin_headers"]
+    run = _start(
+        client, headers, years[2023]["id"], years[2025]["id"], threshold=FIXTURE_THRESHOLD
+    ).json()
+    drain_queue(db)
+
+    skipped = db.execute(
+        select(RunParcel).where(
+            RunParcel.run_id == uuid.UUID(run["id"]), RunParcel.skipped_reason.is_not(None)
+        )
+    ).scalars().all()
+    assert skipped
+    for row in skipped:
+        assert row.structure_geom is None and row.new_builtup_geom is None
+
+
+def test_stored_geometry_stays_small_enough_for_county_scale(
+    client: TestClient, db: Session, tenant_with_admin, years
+) -> None:
+    """Under 2 KB per non-NULL row.
+
+    A polygonised raster carries a vertex per pixel step, so without simplification a
+    single parcel's markup can run to thousands of vertices. At a few hundred thousand
+    parcels per run that is the difference between megabytes and gigabytes.
+    """
+    headers = tenant_with_admin["admin_headers"]
+    run = _start(
+        client, headers, years[2021]["id"], years[2023]["id"], threshold=FIXTURE_THRESHOLD
+    ).json()
+    drain_queue(db)
+
+    average = db.execute(
+        select(
+            func.avg(
+                func.pg_column_size(RunParcel.new_builtup_geom)
+                + func.pg_column_size(RunParcel.structure_geom)
+            )
+        ).where(
+            RunParcel.run_id == uuid.UUID(run["id"]),
+            RunParcel.new_builtup_geom.is_not(None),
+        )
+    ).scalar_one()
+    assert average is not None, "expected at least one row with stored geometry"
+    assert float(average) < 2048, f"stored geometry averages {average} bytes per row"
+
+
+def _other_tenant_sub(db: Session) -> str:
+    """A second tenant with an admin, for proving cross-tenant reads are refused."""
+    from ptax.db.models import Tenant, User, UserRole
+
+    other = Tenant(name="Other County", state="MN", fips="27001")
+    db.add(other)
+    db.flush()
+    sub = str(uuid.uuid4())
+    db.add(User(tenant_id=other.id, cognito_sub=sub, email="a@other.test", role=UserRole.admin))
+    # flush, never commit: the session fixture rolls back, and a commit here leaks this
+    # tenant into every later test (it collided with the seed and NAIP ingest tests).
+    db.flush()
+    return sub
+
+
+# --- Reading a run's per-parcel results -------------------------------------------------
+
+
+def _parcels(client: TestClient, headers: dict, run_id: str, **params) -> dict:
+    response = client.get(f"/api/runs/{run_id}/parcels", headers=headers, params=params)
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+@pytest.fixture
+def scored(client: TestClient, db: Session, tenant_with_admin, years) -> dict:
+    headers = tenant_with_admin["admin_headers"]
+    run = _start(
+        client, headers, years[2021]["id"], years[2023]["id"], threshold=FIXTURE_THRESHOLD
+    ).json()
+    drain_queue(db)
+    return {"run_id": run["id"], "headers": headers}
+
+
+def test_the_parcel_list_is_ordered_by_score_with_skipped_rows_last(
+    client: TestClient, db: Session, tenant_with_admin, years
+) -> None:
+    headers = tenant_with_admin["admin_headers"]
+    # 2023 -> 2025 leaves ten parcels unscored, so this run has both kinds of row.
+    run = _start(
+        client, headers, years[2023]["id"], years[2025]["id"], threshold=FIXTURE_THRESHOLD
+    ).json()
+    drain_queue(db)
+
+    items = _parcels(client, headers, run["id"], limit=100)["items"]
+    assert len(items) == 25
+    scores = [i["score"] for i in items]
+    scored_part = [s for s in scores if s is not None]
+    assert scored_part == sorted(scored_part, reverse=True)
+    # Unscored rows sort last, not first: a NULL is not the best result in the run.
+    assert all(s is None for s in scores[len(scored_part) :])
+
+
+def test_paging_returns_every_parcel_exactly_once(client: TestClient, db: Session, scored) -> None:
+    seen: list[str] = []
+    offset = 0
+    while True:
+        page = _parcels(client, scored["headers"], scored["run_id"], limit=7, offset=offset)
+        seen.extend(i["parcel_id"] for i in page["items"])
+        if not page["items"] or len(seen) >= page["total"]:
+            break
+        offset += 7
+
+    assert len(seen) == 25
+    assert len(set(seen)) == 25, "a parcel appeared on two pages"
+
+
+def test_the_detail_carries_the_stored_result_and_whether_markup_exists(
+    client: TestClient, db: Session, scored
+) -> None:
+    headers, run_id = scored["headers"], scored["run_id"]
+    flagged = db.execute(
+        select(RunParcel).where(
+            RunParcel.run_id == uuid.UUID(run_id), RunParcel.structure_geom.is_not(None)
+        )
+    ).scalars().first()
+    assert flagged is not None
+
+    body = client.get(
+        f"/api/runs/{run_id}/parcels/{flagged.parcel_id}", headers=headers
+    ).json()
+
+    assert body["score"] == pytest.approx(flagged.score)
+    assert body["candidate"] is flagged.candidate
+    assert body["skipped_reason"] is None
+    assert body["parcel_ref"] == flagged.parcel_ref
+    assert body["indicators"]["structure_m2"] == flagged.indicators["structure_m2"]
+    assert body["has_markup"] is True
+
+
+def test_a_parcel_with_no_recorded_markup_says_so(
+    client: TestClient, db: Session, scored
+) -> None:
+    """The viewer needs this to render two panes rather than a silently-identical third."""
+    headers, run_id = scored["headers"], scored["run_id"]
+    plain = db.execute(
+        select(RunParcel).where(
+            RunParcel.run_id == uuid.UUID(run_id),
+            RunParcel.structure_geom.is_(None),
+            RunParcel.new_builtup_geom.is_(None),
+        )
+    ).scalars().first()
+    assert plain is not None
+
+    body = client.get(f"/api/runs/{run_id}/parcels/{plain.parcel_id}", headers=headers).json()
+    assert body["has_markup"] is False
+
+
+def test_skipped_parcels_are_listed_and_readable(client: TestClient, db: Session, years,
+                                                 tenant_with_admin) -> None:
+    """A reviewer has to be able to open one and see why it was skipped."""
+    headers = tenant_with_admin["admin_headers"]
+    run = _start(
+        client, headers, years[2023]["id"], years[2025]["id"], threshold=FIXTURE_THRESHOLD
+    ).json()
+    drain_queue(db)
+
+    skipped = db.execute(
+        select(RunParcel).where(
+            RunParcel.run_id == uuid.UUID(run["id"]), RunParcel.skipped_reason.is_not(None)
+        )
+    ).scalars().first()
+    body = client.get(
+        f"/api/runs/{run['id']}/parcels/{skipped.parcel_id}", headers=headers
+    ).json()
+
+    assert body["skipped_reason"] == "no_coverage_target"
+    assert body["score"] is None and body["has_markup"] is False
+
+
+def test_the_parcel_routes_are_scoped_to_the_tenant_and_need_a_token(
+    client: TestClient, db: Session, scored, make_token
+) -> None:
+    headers, run_id = scored["headers"], scored["run_id"]
+    assert client.get(f"/api/runs/{run_id}/parcels").status_code == 401
+    assert client.get(f"/api/runs/{uuid.uuid4()}/parcels", headers=headers).status_code == 404
+    assert (
+        client.get(f"/api/runs/{run_id}/parcels/{uuid.uuid4()}", headers=headers).status_code
+        == 404
+    )
+
+    # A real second tenant against a run that genuinely exists. Random UUIDs alone would
+    # pass even if `_get_run`'s tenant check were dropped, leaving only "does it exist".
+    parcel_id = db.execute(
+        select(RunParcel.parcel_id).where(RunParcel.run_id == uuid.UUID(run_id))
+    ).scalars().first()
+    other_headers = {"Authorization": f"Bearer {make_token(_other_tenant_sub(db))}"}
+    assert client.get(f"/api/runs/{run_id}/parcels", headers=other_headers).status_code == 404
+    assert (
+        client.get(f"/api/runs/{run_id}/parcels/{parcel_id}", headers=other_headers).status_code
+        == 404
+    )
+    assert (
+        client.get(
+            f"/api/runs/{run_id}/parcels/{parcel_id}/overlay.png", headers=other_headers
+        ).status_code
+        == 404
+    )
+
+
+def test_the_score_ordered_list_uses_an_index_rather_than_sorting_the_run(
+    client: TestClient, db: Session, scored
+) -> None:
+    """At county scale the default list must not sort the whole run on every page.
+
+    `run_parcels_queue_idx` is `(run_id, candidate, score DESC)`; with no predicate on
+    `candidate` PostgreSQL cannot merge its two groups into one ordered stream, so before
+    `run_parcels_score_idx` this query planned a full sort. Seeded to 50k rows so the
+    planner prefers a real scan over the sequential read it would pick on 25 rows.
+    """
+    run_id = uuid.UUID(scored["run_id"])
+    run = db.get(Run, run_id)
+    # `run_parcels.parcel_id` is a real foreign key, so the seed needs parcels behind it.
+    db.execute(
+        text(
+            "INSERT INTO parcels (id, tenant_id, layer_id, parcel_ref, geom, attributes) "
+            "SELECT gen_random_uuid(), :tenant_id, :layer_id, 'seed-' || g, "
+            "  ST_Multi(ST_Buffer(ST_SetSRID(ST_MakePoint(-93.5 + g * 1e-6, 45.1), 4326), 1e-5)), "
+            "  '{}'::jsonb "
+            "FROM generate_series(1, 50000) g"
+        ),
+        {"tenant_id": run.tenant_id, "layer_id": run.layer_id},
+    )
+    db.execute(
+        text(
+            "INSERT INTO run_parcels (run_id, parcel_id, parcel_ref, score, candidate) "
+            "SELECT :run_id, p.id, p.parcel_ref, random(), false FROM parcels p "
+            "WHERE p.parcel_ref LIKE 'seed-%'"
+        ),
+        {"run_id": run_id},
+    )
+    db.execute(text("ANALYZE run_parcels"))
+
+    query = text(
+        "EXPLAIN SELECT * FROM run_parcels WHERE run_id = :run_id "
+        "ORDER BY score DESC NULLS LAST, parcel_ref LIMIT 50"
+    )
+
+    def plan() -> str:
+        return "\n".join(r[0] for r in db.execute(query, {"run_id": run_id}))
+
+    with_index = plan()
+    assert "run_parcels_score_idx" in with_index, with_index
+    assert "Sort" not in with_index, f"the list still sorts the run:\n{with_index}"
+
+    # Drop it and the sort comes back -- so the index is demonstrably what removed it.
+    db.execute(text("DROP INDEX run_parcels_score_idx"))
+    without_index = plan()
+    assert "Sort" in without_index, f"expected a sort without the index:\n{without_index}"
+    db.rollback()
