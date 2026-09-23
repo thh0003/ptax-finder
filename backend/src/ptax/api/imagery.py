@@ -3,15 +3,9 @@
 import uuid
 from datetime import datetime
 
-import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from geoalchemy2.shape import to_shape
 from pydantic import BaseModel, Field
-from pyproj import Transformer
-from rasterio.features import rasterize
-from rasterio.warp import transform_bounds
-from rio_tiler.models import ImageData
-from shapely.ops import transform as shapely_transform
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
@@ -19,6 +13,7 @@ from ptax.auth.deps import CurrentUser, get_current_user, require_role
 from ptax.db.models import ImageryAsset, ImageryYear, Parcel, Tenant, UserRole
 from ptax.db.session import get_db
 from ptax.imagery.naip import CatalogError
+from ptax.imagery.preview import paint, plan_view, render_png
 from ptax.imagery.reader import (
     assets_intersecting,
     read_bounds_preview,
@@ -27,7 +22,7 @@ from ptax.imagery.reader import (
 )
 from ptax.imagery.sources import ImagerySource, get_source_dependency
 from ptax.jobs.queue import enqueue
-from ptax.parcels.footprint import NoParcelLayer, footprint_for, utm_epsg_for
+from ptax.parcels.footprint import NoParcelLayer, footprint_for
 
 OUTLINE_RGB = (255, 255, 0)
 OUTLINE_PX = 2
@@ -410,56 +405,25 @@ def parcel_preview(
     if parcel is None or parcel.tenant_id != user.tenant_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "parcel not found")
     geom = to_shape(parcel.geom)
-    minx, miny, maxx, maxy = geom.bounds
-    # Buffer in metres: a fraction of the parcel's longer side.
-    utm = utm_epsg_for(geom)
-    geom_utm = shapely_transform(Transformer.from_crs(4326, utm, always_xy=True).transform, geom)
-    uminx, uminy, umaxx, umaxy = geom_utm.bounds
-    long_side = max(umaxx - uminx, umaxy - uminy)
-    buffer_m = long_side * buffer
-    resolution_m = (long_side + 2 * buffer_m) / size
-    assets = assets_intersecting(
-        db, user.tenant_id, year.id, _expand(minx, miny, maxx, maxy, buffer)
-    )
+    # The extent lives in `imagery.preview` so the run overlay renders the same ground.
+    view = plan_view(geom, size=size, buffer=buffer)
+    assets = assets_intersecting(db, user.tenant_id, year.id, view.search_bbox)
     raster = read_parcel(
-        request.app.state.settings, assets, geom, resolution_m=resolution_m, buffer_m=buffer_m
+        request.app.state.settings,
+        assets,
+        geom,
+        resolution_m=view.resolution_m,
+        buffer_m=view.buffer_m,
     )
     if raster is None or not raster.mask[raster.parcel_mask].any():
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     rgb = raster.data[:3].copy()
     if outline:
-        line = rasterize(
-            [(geom_utm.boundary, 1)],
-            out_shape=raster.parcel_mask.shape,
-            transform=raster.transform,
-            all_touched=True,
-            dtype="uint8",
-        ).astype(bool)
-        for _ in range(OUTLINE_PX - 1):
-            grown = line.copy()
-            grown[1:] |= line[:-1]
-            grown[:-1] |= line[1:]
-            grown[:, 1:] |= line[:, :-1]
-            grown[:, :-1] |= line[:, 1:]
-            line = grown
-        for b, value in enumerate(OUTLINE_RGB):
-            rgb[b][line] = value
-    img = ImageData(
-        np.ma.MaskedArray(rgb, mask=np.broadcast_to(~raster.mask, rgb.shape)),
-        crs=raster.crs,
-        bounds=raster.bounds,
-    )
-    bounds_4326 = transform_bounds(raster.crs, "EPSG:4326", *raster.bounds)
+        paint(rgb, raster, view.geom_utm, OUTLINE_RGB, width_px=OUTLINE_PX, outline_only=True)
+    body, bounds = render_png(raster, rgb)
     return Response(
-        img.render(img_format="PNG"),
-        media_type="image/png",
-        headers={**PNG_HEADERS, "X-Bounds": ",".join(f"{v:.7f}" for v in bounds_4326)},
+        body, media_type="image/png", headers={**PNG_HEADERS, "X-Bounds": bounds}
     )
 
 
-def _expand(
-    minx: float, miny: float, maxx: float, maxy: float, fraction: float
-) -> tuple[float, float, float, float]:
-    dx, dy = (maxx - minx) * fraction, (maxy - miny) * fraction
-    return minx - dx, miny - dy, maxx + dx, maxy + dy

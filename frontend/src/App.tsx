@@ -4,6 +4,7 @@ import Layout from "./components/Layout";
 import ImageryPage from "./pages/ImageryPage";
 import LoginPage from "./pages/LoginPage";
 import ParcelsPage from "./pages/ParcelsPage";
+import ParcelViewerPage from "./pages/ParcelViewerPage";
 import RunsPage from "./pages/RunsPage";
 import UsersPage from "./pages/UsersPage";
 
@@ -17,6 +18,10 @@ export default function App() {
             <Route path="/parcels" element={<ParcelsPage />} />
             <Route path="/imagery" element={<ImageryPage />} />
             <Route path="/runs" element={<RunsPage />} />
+            <Route
+              path="/runs/:runId/parcels/:parcelId"
+              element={<ParcelViewerPage />}
+            />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/" element={<Navigate to="/parcels" replace />} />
           </Route>

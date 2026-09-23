@@ -66,9 +66,22 @@ admin create an upload year (year + optional provider), add GeoTIFF/COG files to
 finish the upload; each year shows its status, band count, resolution, coverage of the
 county footprint and the number of parcels without coverage. The **Runs** page compares a
 base year with a later target year over every parcel and reports processed / candidate /
-skipped counts. Uploaded imagery must be a GeoTIFF or COG with a CRS, 3 or 4 bands
+skipped counts. A finished run lists its parcels highest score first; opening one shows the
+**parcel change viewer** at `/runs/{run}/parcels/{parcel}` — the base year, the target year,
+and the target year with the new structures the run detected drawn on it, alongside the
+score and the measurements behind it. The scoring structure and the rest of the detected
+new built-up area are drawn in different colours, and the markup can be toggled off to
+check it against the bare imagery. A parcel the run skipped says why instead of showing an
+empty pane. Uploaded imagery must be a GeoTIFF or COG with a CRS, 3 or 4 bands
 (RGB or RGB+NIR), `uint8` or `uint16` pixels, 1 m/px or finer, and at most 5 GB per file;
 everything is stored as a uint8 COG under `tenants/<tenant>/imagery/`.
+
+A run records **where** it found the change, not just how much: the detected new built-up
+area and the single structure the score rests on are stored as polygons on `run_parcels`
+when the parcel is scored. The viewer draws what the run recorded, never a fresh
+detection — so a decision keeps matching the picture it was made from while the detector
+changes underneath. Runs completed before this shipped keep their scores and show no
+markup rather than one re-derived by today's code.
 
 Locally `NAIP_SOURCE` defaults to `fixture`: the NAIP list comes from the small synthetic
 years in `backend/tests/fixtures/imagery/` (`make imagery-fixtures` regenerates them), so

@@ -274,7 +274,17 @@ class RunParcel(Base):
     """Per-parcel result of a run; ``parcel_ref`` survives re-uploads (Plan C joins on it)."""
 
     __tablename__ = "run_parcels"
-    __table_args__ = (Index("run_parcels_queue_idx", "run_id", "candidate", text("score DESC")),)
+    __table_args__ = (
+        # Candidate-filtered reads (the review queue). `candidate` sits between the
+        # equality and sort columns, so this index only serves queries that pin it.
+        Index("run_parcels_queue_idx", "run_id", "candidate", text("score DESC")),
+        # The unfiltered score-ordered parcel list. Without this the list sorts the whole
+        # run on every page, because PostgreSQL has no skip scan to merge the two
+        # `candidate` groups of the index above back into one ordered stream.
+        Index(
+            "run_parcels_score_idx", "run_id", text("score DESC NULLS LAST"), "parcel_ref"
+        ),
+    )
 
     run_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("runs.id"), primary_key=True
@@ -287,3 +297,13 @@ class RunParcel(Base):
     candidate: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     skipped_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     indicators: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    # Where the run found the change, recorded when it scored the parcel. NULL means the
+    # run detected nothing, was skipped, or predates this feature -- all three render no
+    # markup, which is what keeps an older run's picture agreeing with its stored score.
+    # No spatial index: these are read by primary key from the viewer, never searched.
+    new_builtup_geom: Mapped[Any | None] = mapped_column(
+        Geometry(geometry_type="MULTIPOLYGON", srid=4326, spatial_index=False), nullable=True
+    )
+    structure_geom: Mapped[Any | None] = mapped_column(
+        Geometry(geometry_type="MULTIPOLYGON", srid=4326, spatial_index=False), nullable=True
+    )

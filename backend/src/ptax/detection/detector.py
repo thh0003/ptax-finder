@@ -34,9 +34,23 @@ class ParcelRaster:
 
 @dataclass(frozen=True)
 class ChangeResult:
+    """A parcel's verdict, plus the masks the verdict was computed from.
+
+    The masks travel with the result so a run can record *where* it found the change, on
+    the same grid it scored. Recomputing them later would answer with whatever the
+    detector does today, which is not necessarily what produced the stored score — and a
+    reassessment that gets challenged has to show the picture the decision rested on.
+
+    Both are on the comparison grid, so ``ParcelRaster.transform`` and ``.crs`` georeference
+    them. ``structure_mask`` is always a subset of ``new_builtup_mask``. An empty mask is a
+    real measurement ("nothing was detected"); ``None`` means no mask was produced at all.
+    """
+
     score: float
     candidate: bool
     indicators: dict[str, Any]
+    new_builtup_mask: np.ndarray | None = None
+    structure_mask: np.ndarray | None = None
 
 
 class InsufficientCoverage(Exception):
@@ -249,7 +263,9 @@ class ClassicalDetector:
         base_frac = float((built_base & valid).sum()) / valid_px
         target_frac = float((built_target & valid).sum()) / valid_px
         builtup_delta = target_frac - base_frac
-        structure_px, structure_fill = _largest_structure(new_builtup, self.MIN_STRUCTURE_FILL)
+        structure_px, structure_fill, structure_mask = _largest_structure(
+            new_builtup, self.MIN_STRUCTURE_FILL
+        )
         structure_m2 = float(structure_px) * px_area
         score = structure_m2 / (structure_m2 + self.SCORE_HALF_STRUCTURE_M2)
         # `min_new_area_m2` is the smallest structure worth reporting, not a total: a
@@ -272,6 +288,8 @@ class ClassicalDetector:
                 "resolution_m": base.resolution_m,
                 **(fit.indicators if fit is not None else _NO_FIT),
             },
+            new_builtup_mask=new_builtup,
+            structure_mask=structure_mask,
         )
 
     def _span(self, resolution_m: float) -> int:
@@ -368,8 +386,12 @@ def _dilate(mask: np.ndarray) -> np.ndarray:
     return ~_erode(~mask)
 
 
-def _largest_structure(mask: np.ndarray, min_fill: float) -> tuple[int, float]:
-    """(pixels, bounding-box fill) of the biggest *building-shaped* blob in ``mask``.
+def _largest_structure(mask: np.ndarray, min_fill: float) -> tuple[int, float, np.ndarray]:
+    """(pixels, bounding-box fill, mask) of the biggest *building-shaped* blob in ``mask``.
+
+    The blob itself is returned alongside its measurements so a run can store the exact
+    area it scored. Deriving it again from the stored polygons would re-answer the
+    question with today's code, which is not necessarily what produced the score.
 
     Size alone does not separate a roof from a year-to-year artefact: measured on the
     evaluation set, spurious blobs on established parcels run larger at the tail than real
@@ -387,7 +409,7 @@ def _largest_structure(mask: np.ndarray, min_fill: float) -> tuple[int, float]:
     """
     coords = np.argwhere(mask)
     if coords.size == 0:
-        return 0, 0.0
+        return 0, 0.0, np.zeros_like(mask, dtype=bool)
     height, width = mask.shape
     index = np.full((height, width), -1, dtype=np.int64)
     index[coords[:, 0], coords[:, 1]] = np.arange(len(coords))
@@ -416,14 +438,19 @@ def _largest_structure(mask: np.ndarray, min_fill: float) -> tuple[int, float]:
 
     roots = np.array([find(node) for node in range(len(coords))])
     best_px, best_fill = 0, 0.0
+    best_member: np.ndarray | None = None
     for root in np.unique(roots):
         member = coords[roots == root]
         rows, columns = member[:, 0], member[:, 1]
         box = (rows.max() - rows.min() + 1) * (columns.max() - columns.min() + 1)
         fill = len(member) / float(box)
         if fill >= min_fill and len(member) > best_px:
-            best_px, best_fill = len(member), fill
-    return best_px, best_fill
+            best_px, best_fill, best_member = len(member), fill, member
+
+    structure = np.zeros_like(mask, dtype=bool)
+    if best_member is not None:
+        structure[best_member[:, 0], best_member[:, 1]] = True
+    return best_px, best_fill, structure
 
 
 def _open(mask: np.ndarray, span: int) -> np.ndarray:

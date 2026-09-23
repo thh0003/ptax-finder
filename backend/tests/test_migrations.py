@@ -1,3 +1,4 @@
+import json
 import uuid
 from pathlib import Path
 
@@ -24,6 +25,50 @@ def _alembic_config(settings: Settings) -> Config:
     return cfg
 
 
+def _seed_parcel_row(conn, parcel_id: uuid.UUID) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID]:
+    """Minimal tenant/user/layer/parcel chain, for tests that run raw SQL mid-migration."""
+    tenant_id, user_id, layer_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    conn.execute(
+        text("INSERT INTO tenants (id, name, state, fips) VALUES (:id, 'M', 'MN', '27997')"),
+        {"id": tenant_id},
+    )
+    conn.execute(
+        text(
+            "INSERT INTO users (id, tenant_id, cognito_sub, email, role) "
+            "VALUES (:id, :tenant, :sub, 'm@t.test', 'admin')"
+        ),
+        {"id": user_id, "tenant": tenant_id, "sub": str(uuid.uuid4())},
+    )
+    conn.execute(
+        text(
+            "INSERT INTO parcel_layers (id, tenant_id, uploaded_by, s3_key, original_filename,"
+            " status) VALUES (:id, :tenant, :user, 'k', 'f.zip', 'ready')"
+        ),
+        {"id": layer_id, "tenant": tenant_id, "user": user_id},
+    )
+    conn.execute(
+        text(
+            "INSERT INTO parcels (id, tenant_id, layer_id, parcel_ref, geom, attributes) VALUES"
+            " (:id, :tenant, :layer, 'ref-1',"
+            "  ST_Multi(ST_GeomFromText('POLYGON((0 0,1 0,1 1,0 1,0 0))', 4326)), '{}'::jsonb)"
+        ),
+        {"id": parcel_id, "tenant": tenant_id, "layer": layer_id},
+    )
+    return tenant_id, layer_id, user_id
+
+
+def _seed_year(conn, tenant_id: uuid.UUID, user_id: uuid.UUID, year: int) -> uuid.UUID:
+    year_id = uuid.uuid4()
+    conn.execute(
+        text(
+            "INSERT INTO imagery_years (id, tenant_id, year, source, status, created_by) "
+            "VALUES (:id, :tenant, :year, 'naip', 'ready', :user)"
+        ),
+        {"id": year_id, "tenant": tenant_id, "year": year, "user": user_id},
+    )
+    return year_id
+
+
 def test_upgrade_and_downgrade_round_trip(settings: Settings) -> None:
     cfg = _alembic_config(settings)
     engine = get_engine(settings.database_url)
@@ -37,7 +82,17 @@ def test_upgrade_and_downgrade_round_trip(settings: Settings) -> None:
     assert "imagery_assets_bounds_idx" in {
         ix["name"] for ix in inspector.get_indexes("imagery_assets")
     }
-    assert "run_parcels_queue_idx" in {ix["name"] for ix in inspector.get_indexes("run_parcels")}
+    run_parcel_indexes = {ix["name"] for ix in inspector.get_indexes("run_parcels")}
+    assert "run_parcels_queue_idx" in run_parcel_indexes
+    # 0004. The queue index cannot serve the unfiltered score-ordered parcel list --
+    # `candidate` sits between the equality and sort columns -- so the list has its own.
+    assert "run_parcels_score_idx" in run_parcel_indexes
+    # 0003. Where a run found the change, nullable so older runs keep their scores with
+    # no markup rather than one re-derived by a detector that has since changed.
+    run_parcel_columns = {c["name"]: c for c in inspector.get_columns("run_parcels")}
+    for column in ("new_builtup_geom", "structure_geom"):
+        assert column in run_parcel_columns, f"{column} missing from run_parcels"
+        assert run_parcel_columns[column]["nullable"] is True
     with engine.connect() as conn:
         enum_values = (
             conn.execute(text("SELECT unnest(enum_range(NULL::user_role))::text")).scalars().all()
@@ -130,3 +185,83 @@ def test_imagery_year_unique_and_status_check(db: Session) -> None:
     with pytest.raises(IntegrityError):
         add_year("bogus")  # status outside the CHECK constraint
     db.rollback()
+
+
+def test_0003_leaves_existing_run_parcel_results_untouched(settings: Settings) -> None:
+    """Migrating a populated `run_parcels` must not disturb the scores already in it.
+
+    The markup columns are nullable with no default and no backfill precisely so this
+    holds: an older run keeps its recorded score and indicators, and simply carries no
+    markup. If 0003 ever rewrote rows, a reassessment's stored evidence would change
+    underneath it.
+    """
+    cfg = _alembic_config(settings)
+    engine = get_engine(settings.database_url)
+
+    command.downgrade(cfg, "base")
+    command.upgrade(cfg, "0002")
+
+    run_id = uuid.uuid4()
+    parcel_id = uuid.uuid4()
+    indicators = {"structure_m2": 412.5, "new_builtup_m2": 980.0}
+    with engine.begin() as conn:
+        tenant_id, layer_id, user_id = _seed_parcel_row(conn, parcel_id)
+        base_year = _seed_year(conn, tenant_id, user_id, 2021)
+        target_year = _seed_year(conn, tenant_id, user_id, 2023)
+        conn.execute(
+            text(
+                "INSERT INTO runs (id, tenant_id, layer_id, base_year_id, target_year_id,"
+                " status, threshold, min_new_area_m2, parcels_total, created_by) VALUES"
+                " (:id, :tenant, :layer, :base, :target, 'succeeded', 0.3, 37.2, 1, :user)"
+            ),
+            {
+                "id": run_id,
+                "tenant": tenant_id,
+                "layer": layer_id,
+                "base": base_year,
+                "target": target_year,
+                "user": user_id,
+            },
+        )
+        conn.execute(
+            text(
+                "INSERT INTO run_parcels (run_id, parcel_id, parcel_ref, score, candidate,"
+                " indicators) VALUES (:run, :parcel, 'ref-1', 0.6125, true, :ind)"
+            ),
+            {"run": run_id, "parcel": parcel_id, "ind": json.dumps(indicators)},
+        )
+
+    command.upgrade(cfg, "0003")
+
+    with engine.connect() as conn:
+        row = conn.execute(
+            text(
+                "SELECT score, candidate, indicators, new_builtup_geom, structure_geom"
+                " FROM run_parcels WHERE run_id = :run"
+            ),
+            {"run": run_id},
+        ).one()
+    assert float(row[0]) == pytest.approx(0.6125)
+    assert row[1] is True
+    assert row[2] == indicators
+    # The new columns exist and are empty -- no markup invented for an older run.
+    assert row[3] is None and row[4] is None
+
+    command.upgrade(cfg, "head")
+
+    # This test writes through its own engine, so its rows are genuinely committed and
+    # outlive the session fixture's rollback. Delete them explicitly. Tearing the schema
+    # down instead would be simpler but destroys state the rest of the suite is using --
+    # doing so broke test_cli and test_imagery_ingest when they ran after this file.
+    with engine.begin() as conn:
+        conn.execute(text("DELETE FROM run_parcels WHERE run_id = :run"), {"run": run_id})
+        conn.execute(text("DELETE FROM runs WHERE id = :run"), {"run": run_id})
+        conn.execute(
+            text("DELETE FROM imagery_years WHERE tenant_id = :tenant"), {"tenant": tenant_id}
+        )
+        conn.execute(text("DELETE FROM parcels WHERE tenant_id = :tenant"), {"tenant": tenant_id})
+        conn.execute(
+            text("DELETE FROM parcel_layers WHERE tenant_id = :tenant"), {"tenant": tenant_id}
+        )
+        conn.execute(text("DELETE FROM users WHERE tenant_id = :tenant"), {"tenant": tenant_id})
+        conn.execute(text("DELETE FROM tenants WHERE id = :tenant"), {"tenant": tenant_id})

@@ -14,7 +14,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
-from geoalchemy2.shape import to_shape
+from geoalchemy2.shape import from_shape, to_shape
 from shapely.geometry import box
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -22,13 +22,16 @@ from sqlalchemy.orm import Session
 from ptax.config import get_settings
 from ptax.db.models import ImageryAsset, ImageryYear, Job, Parcel, Run, RunParcel
 from ptax.detection.detector import (
+    ChangeResult,
     ClassicalDetector,
     Detector,
     InsufficientCoverage,
+    ParcelRaster,
     RadiometricFit,
     fit_radiometry,
     paired_samples,
 )
+from ptax.detection.geometry import mask_to_multipolygon
 from ptax.imagery.reader import read_parcel
 from ptax.jobs.queue import JobInterrupted
 from ptax.jobs.registry import job_handler
@@ -125,7 +128,27 @@ def score_parcel(
     row.score = result.score
     row.candidate = result.candidate
     row.indicators = result.indicators
+    _record_detected_area(row, result, base_raster)
     return row
+
+
+def _record_detected_area(row: RunParcel, result: ChangeResult, raster: ParcelRaster) -> None:
+    """Store where the run found the change, on the grid it scored.
+
+    Hot path: this runs once per parcel inside the batch loop, over runs that cover
+    hundreds of thousands of parcels. Most of them detect nothing, so the empty case must
+    cost one ``.any()`` and no polygonisation at all -- which is also what leaves the
+    column NULL rather than holding an empty shape.
+    """
+    for column, mask in (
+        ("new_builtup_geom", result.new_builtup_mask),
+        ("structure_geom", result.structure_mask),
+    ):
+        if mask is None or not mask.any():
+            continue
+        geom = mask_to_multipolygon(mask, raster.transform, raster.crs)
+        if geom is not None:
+            setattr(row, column, from_shape(geom, srid=4326))
 
 
 #: Parcels read to fit a run's radiometric correction. Enough that unchanged ground
