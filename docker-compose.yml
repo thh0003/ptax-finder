@@ -1,0 +1,63 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: ptax
+      POSTGRES_PASSWORD: ptax
+      POSTGRES_DB: ptax
+    ports:
+      - "5432:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ptax -d ptax"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      # CORS is left at MinIO's default (allow any origin) so browser-direct presigned
+      # PUTs work whichever port Vite picks; real S3 CORS is defined in infra/.
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  minio-init:
+    # The minio/minio image bundles the `mc` client; the standalone minio/mc image is no longer published.
+    image: minio/minio:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      mc mb --ignore-existing local/ptax-uploads &&
+      echo 'bucket ptax-uploads ready'
+      "
+
+  cognito-local:
+    image: jagregory/cognito-local:latest
+    ports:
+      - "9229:9229"
+    volumes:
+      - cognitodata:/app/.cognito
+      # Pins the token issuer to localhost (the container would otherwise stamp 0.0.0.0),
+      # so COGNITO_ISSUER in backend/.env matches what tokens carry.
+      - ./dev/cognito-local/config.json:/app/.cognito/config.json
+
+volumes:
+  dbdata:
+  miniodata:
+  cognitodata:

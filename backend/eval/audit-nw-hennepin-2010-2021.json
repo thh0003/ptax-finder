@@ -1,0 +1,355 @@
+{
+  "audited_at": "2026-09-22",
+  "audited_by": "Claude Code, by inspecting rendered base/target chip pairs",
+  "audited_total": 39,
+  "closed_reasons": [
+    "addition_or_outbuilding",
+    "teardown_rebuild",
+    "geometry_mismatch",
+    "capture_precedes_build",
+    "imagery_unclear",
+    "other"
+  ],
+  "county_strata": {
+    "negative_future": 7760,
+    "negative_old": 387280,
+    "positive": 25167
+  },
+  "county_weighted_noise_rate": 0.0801,
+  "method": "ptax-eval chips --sample 40 --seed 20260922 rendered 39 pairs (13 per stratum); each was read at 1 m with the parcel outlined, base year left and target year right.",
+  "per_stratum": {
+    "negative_future": {
+      "audited": 13,
+      "corrected": 0,
+      "disagreement_rate": 0.0,
+      "unclear": 0
+    },
+    "negative_old": {
+      "audited": 13,
+      "corrected": 1,
+      "disagreement_rate": 0.0769,
+      "unclear": 1
+    },
+    "positive": {
+      "audited": 13,
+      "corrected": 2,
+      "disagreement_rate": 0.1538,
+      "unclear": 0
+    }
+  },
+  "set": "eval/nw-hennepin-2010-2021.json",
+  "verdicts": [
+    {
+      "corrected_stratum": null,
+      "note": "crop or open field in both captures, no structure",
+      "pid": "2112023410042",
+      "reason": null,
+      "stratum": "negative_future",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "crop or open field in both captures, no structure",
+      "pid": "2212023330020",
+      "reason": null,
+      "stratum": "negative_future",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "crop or open field in both captures, no structure",
+      "pid": "2212023340009",
+      "reason": null,
+      "stratum": "negative_future",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "crop or open field in both captures, no structure",
+      "pid": "2212023340052",
+      "reason": null,
+      "stratum": "negative_future",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "crop or open field in both captures, no structure",
+      "pid": "2212023340062",
+      "reason": null,
+      "stratum": "negative_future",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "crop or open field in both captures, no structure",
+      "pid": "2212023430032",
+      "reason": null,
+      "stratum": "negative_future",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "crop or open field in both captures, no structure",
+      "pid": "2712023120042",
+      "reason": null,
+      "stratum": "negative_future",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "crop or open field in both captures, no structure",
+      "pid": "2712023130021",
+      "reason": null,
+      "stratum": "negative_future",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "crop or open field in both captures, no structure",
+      "pid": "2712023210014",
+      "reason": null,
+      "stratum": "negative_future",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "crop or open field in both captures, no structure",
+      "pid": "2712023210052",
+      "reason": null,
+      "stratum": "negative_future",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "crop or open field in both captures, no structure",
+      "pid": "2712023240011",
+      "reason": null,
+      "stratum": "negative_future",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "crop or open field in both captures, no structure",
+      "pid": "2712023240020",
+      "reason": null,
+      "stratum": "negative_future",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "crop or open field in both captures, no structure",
+      "pid": "2712023240048",
+      "reason": null,
+      "stratum": "negative_future",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "principal structure present in both captures",
+      "pid": "2112023410009",
+      "reason": null,
+      "stratum": "negative_old",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "principal structure present in both captures",
+      "pid": "2112023420006",
+      "reason": null,
+      "stratum": "negative_old",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "principal structure present in both captures",
+      "pid": "2112023440004",
+      "reason": null,
+      "stratum": "negative_old",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "large structure REMOVED between captures: a demolition, not a gain. Correctly negative for this plan; demolitions are out of scope.",
+      "pid": "2212023310037",
+      "reason": null,
+      "stratum": "negative_old",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "principal structure present in both captures",
+      "pid": "2212023420034",
+      "reason": null,
+      "stratum": "negative_old",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "principal structure present in both captures",
+      "pid": "2212023430015",
+      "reason": null,
+      "stratum": "negative_old",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "principal structure present in both captures",
+      "pid": "2712023230003",
+      "reason": null,
+      "stratum": "negative_old",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "principal structure present in both captures",
+      "pid": "2712023230005",
+      "reason": null,
+      "stratum": "negative_old",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "pale clearing and a possible small structure appear by 2021 under heavy canopy; 1 m imagery cannot settle it.",
+      "pid": "2712023230012",
+      "reason": "imagery_unclear",
+      "stratum": "negative_old",
+      "verdict": "unclear"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "principal structure present in both captures",
+      "pid": "2812023130011",
+      "reason": null,
+      "stratum": "negative_old",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "principal structure present in both captures",
+      "pid": "2812023340004",
+      "reason": null,
+      "stratum": "negative_old",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": "positive",
+      "note": "new outbuilding with gravel pad appears by 2021; BUILD_YR tracks the principal structure only, so the detector is right to flag this parcel.",
+      "pid": "2812023430002",
+      "reason": "addition_or_outbuilding",
+      "stratum": "negative_old",
+      "verdict": "corrected"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "principal structure present in both captures",
+      "pid": "3412023230003",
+      "reason": null,
+      "stratum": "negative_old",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "structure absent in 2010, present in 2021",
+      "pid": "2212023310039",
+      "reason": null,
+      "stratum": "positive",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "structure absent in 2010, present in 2021",
+      "pid": "2212023310055",
+      "reason": null,
+      "stratum": "positive",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "structure absent in 2010, present in 2021",
+      "pid": "2212023310128",
+      "reason": null,
+      "stratum": "positive",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "structure absent in 2010, present in 2021",
+      "pid": "2212023310129",
+      "reason": null,
+      "stratum": "positive",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "structure absent in 2010, present in 2021",
+      "pid": "2212023310136",
+      "reason": null,
+      "stratum": "positive",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "structure absent in 2010, present in 2021",
+      "pid": "2212023310147",
+      "reason": null,
+      "stratum": "positive",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "structure absent in 2010, present in 2021",
+      "pid": "2212023320111",
+      "reason": null,
+      "stratum": "positive",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": "excluded",
+      "note": "BUILD_YR 2021; both captures show open field. The 2021 NAIP capture is 2021-06-18, so a structure recorded in 2021 may post-date the image.",
+      "pid": "2712023120057",
+      "reason": "capture_precedes_build",
+      "stratum": "positive",
+      "verdict": "corrected"
+    },
+    {
+      "corrected_stratum": "excluded",
+      "note": "BUILD_YR 2021; both captures show open field. The 2021 NAIP capture is 2021-06-18, so a structure recorded in 2021 may post-date the image.",
+      "pid": "2712023120058",
+      "reason": "capture_precedes_build",
+      "stratum": "positive",
+      "verdict": "corrected"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "structure absent in 2010, present in 2021",
+      "pid": "2712023320010",
+      "reason": null,
+      "stratum": "positive",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "structure absent in 2010, present in 2021",
+      "pid": "2712023320012",
+      "reason": null,
+      "stratum": "positive",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "structure absent in 2010, present in 2021",
+      "pid": "2712023330006",
+      "reason": null,
+      "stratum": "positive",
+      "verdict": "agreed"
+    },
+    {
+      "corrected_stratum": null,
+      "note": "structure absent in 2010, present in 2021",
+      "pid": "2812023310020",
+      "reason": null,
+      "stratum": "positive",
+      "verdict": "agreed"
+    }
+  ]
+}

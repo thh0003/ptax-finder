@@ -1,0 +1,73 @@
+[project]
+name = "ptax"
+version = "0.1.0"
+description = "ptax-finder backend: API, worker, and operator CLI"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "sqlalchemy>=2.0",
+    "geoalchemy2>=0.15",
+    "alembic>=1.13",
+    "psycopg[binary]>=3.2",
+    "pydantic-settings>=2.4",
+    "boto3>=1.35",
+    "PyJWT[crypto]>=2.9",
+    "httpx>=0.27",
+    "geopandas>=1.0",
+    "pyogrio>=0.10",
+    "shapely>=2.0",
+    "typer>=0.12",
+    "pydantic[email]>=2.13.5",
+    "rasterio>=1.5",
+    "rio-tiler>=9",
+    "rio-cogeo>=7",
+    "numpy>=2",
+]
+
+[project.scripts]
+ptax-admin = "ptax.cli:app"
+ptax-eval = "ptax.eval.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "moto[cognitoidp]>=5",
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ptax"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.13"
+packages = ["ptax"]
+mypy_path = "src"
+# boto3/botocore, pyogrio and shapely ship no type information.
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency injection idiom is a call in a default argument.
+extend-immutable-calls = [
+    "fastapi.Depends", "fastapi.Query", "fastapi.Body", "fastapi.Header",
+    "typer.Option", "typer.Argument",
+]
+
+[tool.ruff.lint.isort]
+# The local ./alembic migrations directory must not shadow the alembic package.
+known-third-party = ["alembic"]

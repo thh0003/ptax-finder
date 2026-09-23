@@ -1,0 +1,304 @@
+{
+ "page1": {
+  "type": "FeatureCollection",
+  "stac_version": "1.0.0",
+  "features": [
+   {
+    "type": "Feature",
+    "stac_version": "1.0.0",
+    "id": "mn_m_4509359_se_15_060_20210618",
+    "collection": "naip",
+    "properties": {
+     "naip:state": "mn",
+     "naip:year": "2021",
+     "gsd": 0.6,
+     "proj:epsg": 26915,
+     "proj:shape": [
+      12730,
+      9234
+     ],
+     "proj:bbox": [
+      445554,
+      4982840.4,
+      451094.4,
+      4990478.4
+     ],
+     "datetime": "2021-06-18T16:00:00Z",
+     "storage:requester_pays": true,
+     "storage:region": "us-west-2"
+    },
+    "geometry": {
+     "type": "Polygon",
+     "coordinates": [
+      [
+       [
+        -93.62048,
+        44.997324
+       ],
+       [
+        -93.621223,
+        45.066077
+       ],
+       [
+        -93.691595,
+        45.065672
+       ],
+       [
+        -93.690768,
+        44.996921
+       ],
+       [
+        -93.62048,
+        44.997324
+       ]
+      ]
+     ]
+    },
+    "bbox": [
+     -93.691595,
+     44.996921,
+     -93.62048,
+     45.066077
+    ],
+    "assets": {
+     "image": {
+      "href": "s3://naip-analytic/mn/2021/60cm/rgbir_cog/45093/m_4509359_se_15_060_20210618.tif",
+      "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+      "roles": [
+       "data"
+      ]
+     }
+    },
+    "links": []
+   },
+   {
+    "type": "Feature",
+    "stac_version": "1.0.0",
+    "id": "mn_m_4509359_sw_15_060_20210618",
+    "collection": "naip",
+    "properties": {
+     "naip:state": "mn",
+     "naip:year": "2021",
+     "gsd": 0.6,
+     "proj:epsg": 26915,
+     "proj:shape": [
+      12737,
+      9374
+     ],
+     "proj:bbox": [
+      440589,
+      4982880,
+      446213.4,
+      4990522.2
+     ],
+     "datetime": "2021-06-18T16:00:00Z",
+     "storage:requester_pays": true,
+     "storage:region": "us-west-2"
+    },
+    "geometry": {
+     "type": "Polygon",
+     "coordinates": [
+      [
+       [
+        -93.682407,
+        44.997327
+       ],
+       [
+        -93.683225,
+        45.066117
+       ],
+       [
+        -93.754663,
+        45.065667
+       ],
+       [
+        -93.753759,
+        44.996879
+       ],
+       [
+        -93.682407,
+        44.997327
+       ]
+      ]
+     ]
+    },
+    "bbox": [
+     -93.754663,
+     44.996879,
+     -93.682407,
+     45.066117
+    ],
+    "assets": {
+     "image": {
+      "href": "s3://naip-analytic/mn/2021/60cm/rgbir_cog/45093/m_4509359_sw_15_060_20210618.tif",
+      "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+      "roles": [
+       "data"
+      ]
+     }
+    },
+    "links": []
+   }
+  ],
+  "links": [
+   {
+    "rel": "next",
+    "type": "application/geo+json",
+    "method": "GET",
+    "href": "https://earth-search.aws.element84.com/v1/collections/naip/items?collections=naip&bbox=-93.7%2C45.05%2C-93.6925%2C45.0575&limit=200&next=page2"
+   },
+   {
+    "rel": "self",
+    "href": "https://earth-search.aws.element84.com/v1/collections/naip/items"
+   }
+  ]
+ },
+ "page2": {
+  "type": "FeatureCollection",
+  "stac_version": "1.0.0",
+  "features": [
+   {
+    "type": "Feature",
+    "stac_version": "1.0.0",
+    "id": "mn_m_4509359_se_15_030_20230731",
+    "collection": "naip",
+    "properties": {
+     "naip:state": "mn",
+     "naip:year": "2023",
+     "gsd": 0.3,
+     "proj:epsg": 26915,
+     "proj:shape": [
+      25276,
+      18599
+     ],
+     "proj:bbox": [
+      445514.4,
+      4982840.4,
+      451094.10000000003,
+      4990423.2
+     ],
+     "datetime": "2023-07-31T16:00:00Z",
+     "storage:requester_pays": true,
+     "storage:region": "us-west-2"
+    },
+    "geometry": {
+     "type": "Polygon",
+     "coordinates": [
+      [
+       [
+        -93.620484,
+        44.997324
+       ],
+       [
+        -93.621222,
+        45.06558
+       ],
+       [
+        -93.692092,
+        45.065172
+       ],
+       [
+        -93.69127,
+        44.996918
+       ],
+       [
+        -93.620484,
+        44.997324
+       ]
+      ]
+     ]
+    },
+    "bbox": [
+     -93.692092,
+     44.996918,
+     -93.620484,
+     45.06558
+    ],
+    "assets": {
+     "image": {
+      "href": "s3://naip-analytic/mn/2023/30cm/rgbir_cog/45093/m_4509359_se_15_030_20230731_20240119.tif",
+      "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+      "roles": [
+       "data"
+      ]
+     }
+    },
+    "links": []
+   },
+   {
+    "type": "Feature",
+    "stac_version": "1.0.0",
+    "id": "mn_m_4509359_sw_15_030_20230731",
+    "collection": "naip",
+    "properties": {
+     "naip:state": "mn",
+     "naip:year": "2023",
+     "gsd": 0.3,
+     "proj:epsg": 26915,
+     "proj:shape": [
+      25289,
+      18616
+     ],
+     "proj:bbox": [
+      440588.7,
+      4982880.3,
+      446173.5,
+      4990467
+     ],
+     "datetime": "2023-07-31T16:00:00Z",
+     "storage:requester_pays": true,
+     "storage:region": "us-west-2"
+    },
+    "geometry": {
+     "type": "Polygon",
+     "coordinates": [
+      [
+       [
+        -93.682913,
+        44.997327
+       ],
+       [
+        -93.683726,
+        45.065617
+       ],
+       [
+        -93.75466,
+        45.06517
+       ],
+       [
+        -93.753763,
+        44.996881
+       ],
+       [
+        -93.682913,
+        44.997327
+       ]
+      ]
+     ]
+    },
+    "bbox": [
+     -93.75466,
+     44.996881,
+     -93.682913,
+     45.065617
+    ],
+    "assets": {
+     "image": {
+      "href": "s3://naip-analytic/mn/2023/30cm/rgbir_cog/45093/m_4509359_sw_15_030_20230731_20240119.tif",
+      "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+      "roles": [
+       "data"
+      ]
+     }
+    },
+    "links": []
+   }
+  ],
+  "links": [
+   {
+    "rel": "self",
+    "href": "https://earth-search.aws.element84.com/v1/collections/naip/items"
+   }
+  ]
+ }
+}

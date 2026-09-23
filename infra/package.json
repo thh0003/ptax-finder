@@ -1,0 +1,23 @@
+{
+  "name": "ptax-infra",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build": "tsc",
+    "cdk": "cdk",
+    "test": "jest"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.15.0",
+    "aws-cdk": "^2.1129.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.3.0",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.8.0"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.220.0",
+    "constructs": "^10.4.0"
+  }
+}

@@ -1,0 +1,3043 @@
+{
+  "aoi": "nw-hennepin",
+  "base_year": 2010,
+  "labels": [
+    {
+      "build_yr": "1965",
+      "column": 0,
+      "improved": false,
+      "pid": "2112023230001",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-011.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1970",
+      "column": 1,
+      "improved": false,
+      "pid": "2112023240002",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-011.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1973",
+      "column": 0,
+      "improved": false,
+      "pid": "2112023310004",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-011.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1972",
+      "column": 1,
+      "improved": false,
+      "pid": "2112023310005",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-011.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1977",
+      "column": 0,
+      "improved": false,
+      "pid": "2112023310011",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-011.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1974",
+      "column": 1,
+      "improved": false,
+      "pid": "2112023310014",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-011.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1975",
+      "column": 0,
+      "improved": false,
+      "pid": "2112023310015",
+      "reason": "no_change",
+      "row": 3,
+      "sheet": "sheet-011.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1986",
+      "column": 1,
+      "improved": true,
+      "pid": "2112023310017",
+      "reason": "addition_or_outbuilding",
+      "row": 3,
+      "sheet": "sheet-011.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1972",
+      "column": 0,
+      "improved": false,
+      "pid": "2112023310018",
+      "reason": "no_change",
+      "row": 4,
+      "sheet": "sheet-011.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1997",
+      "column": 1,
+      "improved": false,
+      "pid": "2112023320007",
+      "reason": "no_change",
+      "row": 4,
+      "sheet": "sheet-011.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1984",
+      "column": 0,
+      "improved": false,
+      "pid": "2112023330005",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-012.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1959",
+      "column": 1,
+      "improved": false,
+      "pid": "2112023410003",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-012.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1979",
+      "column": 0,
+      "improved": false,
+      "pid": "2112023410009",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-012.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2024",
+      "column": 0,
+      "improved": false,
+      "pid": "2112023410015",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-021.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 1,
+      "improved": false,
+      "pid": "2112023410016",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-021.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 0,
+      "improved": false,
+      "pid": "2112023410017",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-021.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2025",
+      "column": 1,
+      "improved": false,
+      "pid": "2112023410018",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-021.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2025",
+      "column": 0,
+      "improved": false,
+      "pid": "2112023410020",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-021.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2025",
+      "column": 1,
+      "improved": false,
+      "pid": "2112023410026",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-021.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2025",
+      "column": 0,
+      "improved": false,
+      "pid": "2112023410030",
+      "reason": "no_change",
+      "row": 3,
+      "sheet": "sheet-021.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2025",
+      "column": 1,
+      "improved": false,
+      "pid": "2112023410034",
+      "reason": "no_change",
+      "row": 3,
+      "sheet": "sheet-021.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 0,
+      "improved": false,
+      "pid": "2112023410039",
+      "reason": "no_change",
+      "row": 4,
+      "sheet": "sheet-021.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 1,
+      "improved": false,
+      "pid": "2112023410040",
+      "reason": "no_change",
+      "row": 4,
+      "sheet": "sheet-021.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2025",
+      "column": 0,
+      "improved": false,
+      "pid": "2112023410041",
+      "reason": "ground_change_only",
+      "row": 0,
+      "sheet": "sheet-022.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2025",
+      "column": 1,
+      "improved": false,
+      "pid": "2112023410042",
+      "reason": "ground_change_only",
+      "row": 0,
+      "sheet": "sheet-022.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2025",
+      "column": 0,
+      "improved": false,
+      "pid": "2112023410043",
+      "reason": "ground_change_only",
+      "row": 1,
+      "sheet": "sheet-022.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "1900",
+      "column": 1,
+      "improved": true,
+      "pid": "2112023420003",
+      "reason": "structure_added",
+      "row": 1,
+      "sheet": "sheet-012.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1977",
+      "column": 0,
+      "improved": true,
+      "pid": "2112023420006",
+      "reason": "addition_or_outbuilding",
+      "row": 2,
+      "sheet": "sheet-012.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2015",
+      "column": 0,
+      "improved": false,
+      "pid": "2112023420012",
+      "reason": "unclear",
+      "row": 0,
+      "sheet": "sheet-001.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "1954",
+      "column": 1,
+      "improved": false,
+      "pid": "2112023440004",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-012.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1976",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023130001",
+      "reason": "addition_or_outbuilding",
+      "row": 3,
+      "sheet": "sheet-012.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1991",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023130009",
+      "reason": "no_change",
+      "row": 3,
+      "sheet": "sheet-012.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1991",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023130012",
+      "reason": "no_change",
+      "row": 4,
+      "sheet": "sheet-012.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1970",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023230001",
+      "reason": "ground_change_only",
+      "row": 4,
+      "sheet": "sheet-012.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2000",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023230003",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-013.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2000",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023230004",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-013.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2002",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023230005",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-013.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2000",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023230019",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-013.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2000",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023230021",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-013.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1970",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023240001",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-013.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2012",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023240015",
+      "reason": "structure_added",
+      "row": 0,
+      "sheet": "sheet-001.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2013",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023240017",
+      "reason": "structure_added",
+      "row": 1,
+      "sheet": "sheet-001.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2013",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023240020",
+      "reason": "structure_added",
+      "row": 1,
+      "sheet": "sheet-001.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2013",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023240021",
+      "reason": "structure_added",
+      "row": 2,
+      "sheet": "sheet-001.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "1900",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023310037",
+      "reason": "no_change",
+      "row": 3,
+      "sheet": "sheet-013.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2007",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023310038",
+      "reason": "no_change",
+      "row": 3,
+      "sheet": "sheet-013.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2015",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023310039",
+      "reason": "structure_added",
+      "row": 2,
+      "sheet": "sheet-001.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2006",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023310040",
+      "reason": "no_change",
+      "row": 4,
+      "sheet": "sheet-013.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2015",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023310042",
+      "reason": "structure_added",
+      "row": 3,
+      "sheet": "sheet-001.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2007",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023310043",
+      "reason": "no_change",
+      "row": 4,
+      "sheet": "sheet-013.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2015",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023310044",
+      "reason": "structure_added",
+      "row": 3,
+      "sheet": "sheet-001.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2013",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023310045",
+      "reason": "structure_added",
+      "row": 4,
+      "sheet": "sheet-001.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2015",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023310046",
+      "reason": "structure_added",
+      "row": 4,
+      "sheet": "sheet-001.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2013",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023310047",
+      "reason": "structure_added",
+      "row": 0,
+      "sheet": "sheet-002.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2014",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023310048",
+      "reason": "structure_added",
+      "row": 0,
+      "sheet": "sheet-002.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "1977",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023310050",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-014.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2012",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023310051",
+      "reason": "structure_added",
+      "row": 1,
+      "sheet": "sheet-002.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2016",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023310053",
+      "reason": "structure_added",
+      "row": 1,
+      "sheet": "sheet-002.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2007",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023310054",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-014.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2012",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023310055",
+      "reason": "structure_added",
+      "row": 2,
+      "sheet": "sheet-002.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2013",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023310056",
+      "reason": "structure_added",
+      "row": 2,
+      "sheet": "sheet-002.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2013",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023310058",
+      "reason": "structure_added",
+      "row": 3,
+      "sheet": "sheet-002.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2007",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023310060",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-014.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2012",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023310061",
+      "reason": "structure_added",
+      "row": 3,
+      "sheet": "sheet-002.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2007",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023310063",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-014.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2013",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023310064",
+      "reason": "structure_added",
+      "row": 4,
+      "sheet": "sheet-002.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2013",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023310065",
+      "reason": "structure_added",
+      "row": 4,
+      "sheet": "sheet-002.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2012",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023310066",
+      "reason": "structure_added",
+      "row": 0,
+      "sheet": "sheet-003.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2013",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023310068",
+      "reason": "structure_added",
+      "row": 0,
+      "sheet": "sheet-003.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2014",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023310069",
+      "reason": "structure_added",
+      "row": 1,
+      "sheet": "sheet-003.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2018",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023310122",
+      "reason": "structure_added",
+      "row": 1,
+      "sheet": "sheet-003.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2017",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023310123",
+      "reason": "structure_added",
+      "row": 2,
+      "sheet": "sheet-003.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2017",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023310125",
+      "reason": "structure_added",
+      "row": 2,
+      "sheet": "sheet-003.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2018",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023310126",
+      "reason": "structure_added",
+      "row": 3,
+      "sheet": "sheet-003.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2018",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023310127",
+      "reason": "structure_added",
+      "row": 3,
+      "sheet": "sheet-003.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2017",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023310128",
+      "reason": "structure_added",
+      "row": 4,
+      "sheet": "sheet-003.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2017",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023310129",
+      "reason": "structure_added",
+      "row": 4,
+      "sheet": "sheet-003.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2018",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023310130",
+      "reason": "structure_added",
+      "row": 0,
+      "sheet": "sheet-004.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2017",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023310132",
+      "reason": "structure_added",
+      "row": 0,
+      "sheet": "sheet-004.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2017",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023310133",
+      "reason": "structure_added",
+      "row": 1,
+      "sheet": "sheet-004.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2017",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023310134",
+      "reason": "structure_added",
+      "row": 1,
+      "sheet": "sheet-004.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2017",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023310136",
+      "reason": "structure_added",
+      "row": 2,
+      "sheet": "sheet-004.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2017",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023310137",
+      "reason": "structure_added",
+      "row": 2,
+      "sheet": "sheet-004.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2017",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023310142",
+      "reason": "structure_added",
+      "row": 3,
+      "sheet": "sheet-004.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2017",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023310143",
+      "reason": "structure_added",
+      "row": 3,
+      "sheet": "sheet-004.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2016",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023310145",
+      "reason": "structure_added",
+      "row": 4,
+      "sheet": "sheet-004.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2016",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023310147",
+      "reason": "structure_added",
+      "row": 4,
+      "sheet": "sheet-004.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2016",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023310148",
+      "reason": "structure_added",
+      "row": 0,
+      "sheet": "sheet-005.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2016",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023310149",
+      "reason": "structure_added",
+      "row": 0,
+      "sheet": "sheet-005.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2017",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023310150",
+      "reason": "structure_added",
+      "row": 1,
+      "sheet": "sheet-005.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2017",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023310151",
+      "reason": "structure_added",
+      "row": 1,
+      "sheet": "sheet-005.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2017",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023310152",
+      "reason": "structure_added",
+      "row": 2,
+      "sheet": "sheet-005.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2017",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023310153",
+      "reason": "structure_added",
+      "row": 2,
+      "sheet": "sheet-005.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2018",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023310154",
+      "reason": "structure_added",
+      "row": 3,
+      "sheet": "sheet-005.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2010",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023320092",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-014.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2007",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023320093",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-014.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2010",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023320094",
+      "reason": "structure_added",
+      "row": 3,
+      "sheet": "sheet-014.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2013",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023320095",
+      "reason": "structure_added",
+      "row": 3,
+      "sheet": "sheet-005.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2014",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023320096",
+      "reason": "structure_added",
+      "row": 4,
+      "sheet": "sheet-005.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2013",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023320097",
+      "reason": "structure_added",
+      "row": 4,
+      "sheet": "sheet-005.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2017",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023320099",
+      "reason": "structure_added",
+      "row": 0,
+      "sheet": "sheet-006.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2016",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023320100",
+      "reason": "structure_added",
+      "row": 0,
+      "sheet": "sheet-006.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2012",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023320102",
+      "reason": "structure_added",
+      "row": 1,
+      "sheet": "sheet-006.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2013",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023320103",
+      "reason": "structure_added",
+      "row": 1,
+      "sheet": "sheet-006.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2013",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023320105",
+      "reason": "structure_added",
+      "row": 2,
+      "sheet": "sheet-006.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2015",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023320106",
+      "reason": "structure_added",
+      "row": 2,
+      "sheet": "sheet-006.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2013",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023320107",
+      "reason": "structure_added",
+      "row": 3,
+      "sheet": "sheet-006.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2012",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023320109",
+      "reason": "structure_added",
+      "row": 3,
+      "sheet": "sheet-006.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2011",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023320110",
+      "reason": "structure_added",
+      "row": 4,
+      "sheet": "sheet-006.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2013",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023320111",
+      "reason": "structure_added",
+      "row": 4,
+      "sheet": "sheet-006.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2013",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023320113",
+      "reason": "structure_added",
+      "row": 0,
+      "sheet": "sheet-007.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2012",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023320114",
+      "reason": "structure_added",
+      "row": 0,
+      "sheet": "sheet-007.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2011",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023320115",
+      "reason": "structure_added",
+      "row": 1,
+      "sheet": "sheet-007.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2015",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023320117",
+      "reason": "structure_added",
+      "row": 1,
+      "sheet": "sheet-007.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2014",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023320118",
+      "reason": "structure_added",
+      "row": 2,
+      "sheet": "sheet-007.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2014",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023320119",
+      "reason": "structure_added",
+      "row": 2,
+      "sheet": "sheet-007.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2011",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023320122",
+      "reason": "structure_added",
+      "row": 3,
+      "sheet": "sheet-007.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2016",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023320123",
+      "reason": "structure_added",
+      "row": 3,
+      "sheet": "sheet-007.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2013",
+      "column": 0,
+      "improved": true,
+      "pid": "2212023320124",
+      "reason": "structure_added",
+      "row": 4,
+      "sheet": "sheet-007.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "1900",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023330004",
+      "reason": "no_change",
+      "row": 3,
+      "sheet": "sheet-014.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2016",
+      "column": 1,
+      "improved": true,
+      "pid": "2212023330005",
+      "reason": "structure_added",
+      "row": 4,
+      "sheet": "sheet-007.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2025",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023330009",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-022.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2025",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023330010",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-022.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2025",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023330012",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-022.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2025",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023330018",
+      "reason": "ground_change_only",
+      "row": 3,
+      "sheet": "sheet-022.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2025",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023330020",
+      "reason": "ground_change_only",
+      "row": 3,
+      "sheet": "sheet-022.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2025",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023330024",
+      "reason": "ground_change_only",
+      "row": 4,
+      "sheet": "sheet-022.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023330026",
+      "reason": "ground_change_only",
+      "row": 4,
+      "sheet": "sheet-022.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023330037",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-023.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023330044",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-023.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2023",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023340006",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-023.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023340008",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-023.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023340009",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-023.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023340019",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-023.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023340020",
+      "reason": "no_change",
+      "row": 3,
+      "sheet": "sheet-023.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2025",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023340028",
+      "reason": "no_change",
+      "row": 3,
+      "sheet": "sheet-023.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2025",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023340043",
+      "reason": "no_change",
+      "row": 4,
+      "sheet": "sheet-023.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2025",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023340044",
+      "reason": "no_change",
+      "row": 4,
+      "sheet": "sheet-023.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2025",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023340052",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-024.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2025",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023340053",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-024.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2025",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023340054",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-024.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2025",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023340055",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-024.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2025",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023340062",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-024.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2002",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023420010",
+      "reason": "no_change",
+      "row": 4,
+      "sheet": "sheet-014.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2001",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023420011",
+      "reason": "no_change",
+      "row": 4,
+      "sheet": "sheet-014.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2001",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023420012",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-015.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2006",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023420034",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-015.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2006",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023420035",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-015.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1960",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023420036",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-015.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2005",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023430012",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-015.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2005",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023430013",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-015.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2006",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023430014",
+      "reason": "no_change",
+      "row": 3,
+      "sheet": "sheet-015.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2006",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023430015",
+      "reason": "no_change",
+      "row": 3,
+      "sheet": "sheet-015.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2021",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023430028",
+      "reason": "ground_change_only",
+      "row": 0,
+      "sheet": "sheet-008.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2022",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023430031",
+      "reason": "ground_change_only",
+      "row": 2,
+      "sheet": "sheet-024.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2022",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023430032",
+      "reason": "ground_change_only",
+      "row": 3,
+      "sheet": "sheet-024.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2021",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023430033",
+      "reason": "ground_change_only",
+      "row": 0,
+      "sheet": "sheet-008.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2021",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023430034",
+      "reason": "ground_change_only",
+      "row": 1,
+      "sheet": "sheet-008.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2022",
+      "column": 1,
+      "improved": false,
+      "pid": "2212023430035",
+      "reason": "ground_change_only",
+      "row": 3,
+      "sheet": "sheet-024.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2022",
+      "column": 0,
+      "improved": false,
+      "pid": "2212023430038",
+      "reason": "ground_change_only",
+      "row": 4,
+      "sheet": "sheet-024.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "1959",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023120005",
+      "reason": "no_change",
+      "row": 4,
+      "sheet": "sheet-015.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1880",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023120007",
+      "reason": "no_change",
+      "row": 4,
+      "sheet": "sheet-015.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2021",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023120016",
+      "reason": "ground_change_only",
+      "row": 1,
+      "sheet": "sheet-008.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2021",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023120017",
+      "reason": "ground_change_only",
+      "row": 2,
+      "sheet": "sheet-008.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2021",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023120018",
+      "reason": "ground_change_only",
+      "row": 2,
+      "sheet": "sheet-008.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2021",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023120019",
+      "reason": "ground_change_only",
+      "row": 3,
+      "sheet": "sheet-008.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2022",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023120034",
+      "reason": "ground_change_only",
+      "row": 4,
+      "sheet": "sheet-024.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2023",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023120037",
+      "reason": "ground_change_only",
+      "row": 0,
+      "sheet": "sheet-025.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2023",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023120038",
+      "reason": "ground_change_only",
+      "row": 0,
+      "sheet": "sheet-025.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2023",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023120041",
+      "reason": "ground_change_only",
+      "row": 1,
+      "sheet": "sheet-025.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2023",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023120042",
+      "reason": "ground_change_only",
+      "row": 1,
+      "sheet": "sheet-025.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2021",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023120046",
+      "reason": "ground_change_only",
+      "row": 3,
+      "sheet": "sheet-008.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2021",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023120047",
+      "reason": "ground_change_only",
+      "row": 4,
+      "sheet": "sheet-008.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2021",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023120049",
+      "reason": "ground_change_only",
+      "row": 4,
+      "sheet": "sheet-008.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2021",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023120050",
+      "reason": "ground_change_only",
+      "row": 0,
+      "sheet": "sheet-009.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2021",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023120053",
+      "reason": "ground_change_only",
+      "row": 0,
+      "sheet": "sheet-009.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2021",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023120054",
+      "reason": "ground_change_only",
+      "row": 1,
+      "sheet": "sheet-009.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2021",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023120057",
+      "reason": "ground_change_only",
+      "row": 1,
+      "sheet": "sheet-009.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2021",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023120058",
+      "reason": "ground_change_only",
+      "row": 2,
+      "sheet": "sheet-009.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2023",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023120059",
+      "reason": "ground_change_only",
+      "row": 2,
+      "sheet": "sheet-025.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2023",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023130021",
+      "reason": "ground_change_only",
+      "row": 2,
+      "sheet": "sheet-025.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2023",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023130022",
+      "reason": "ground_change_only",
+      "row": 3,
+      "sheet": "sheet-025.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2022",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023130038",
+      "reason": "ground_change_only",
+      "row": 3,
+      "sheet": "sheet-025.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2022",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023130039",
+      "reason": "ground_change_only",
+      "row": 4,
+      "sheet": "sheet-025.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2022",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023130046",
+      "reason": "ground_change_only",
+      "row": 4,
+      "sheet": "sheet-025.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2022",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023130047",
+      "reason": "ground_change_only",
+      "row": 0,
+      "sheet": "sheet-026.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2022",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023130048",
+      "reason": "ground_change_only",
+      "row": 0,
+      "sheet": "sheet-026.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "1997",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023210001",
+      "reason": "ground_change_only",
+      "row": 0,
+      "sheet": "sheet-016.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1996",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023210002",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-016.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2023",
+      "column": 0,
+      "improved": true,
+      "pid": "2712023210007",
+      "reason": "structure_added",
+      "row": 1,
+      "sheet": "sheet-026.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2023",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023210008",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-026.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023210010",
+      "reason": "ground_change_only",
+      "row": 2,
+      "sheet": "sheet-026.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023210014",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-026.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2023",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023210017",
+      "reason": "no_change",
+      "row": 3,
+      "sheet": "sheet-026.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2023",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023210019",
+      "reason": "no_change",
+      "row": 3,
+      "sheet": "sheet-026.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2025",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023210049",
+      "reason": "ground_change_only",
+      "row": 4,
+      "sheet": "sheet-026.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2023",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023210052",
+      "reason": "ground_change_only",
+      "row": 4,
+      "sheet": "sheet-026.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2023",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023210054",
+      "reason": "ground_change_only",
+      "row": 0,
+      "sheet": "sheet-027.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2022",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023210059",
+      "reason": "ground_change_only",
+      "row": 0,
+      "sheet": "sheet-027.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2023",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023210060",
+      "reason": "ground_change_only",
+      "row": 1,
+      "sheet": "sheet-027.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2023",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023210062",
+      "reason": "ground_change_only",
+      "row": 1,
+      "sheet": "sheet-027.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "1971",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023230003",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-016.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1975",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023230004",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-016.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1971",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023230005",
+      "reason": "ground_change_only",
+      "row": 2,
+      "sheet": "sheet-016.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1973",
+      "column": 1,
+      "improved": true,
+      "pid": "2712023230006",
+      "reason": "structure_added",
+      "row": 2,
+      "sheet": "sheet-016.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1972",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023230008",
+      "reason": "no_change",
+      "row": 3,
+      "sheet": "sheet-016.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1976",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023230009",
+      "reason": "no_change",
+      "row": 3,
+      "sheet": "sheet-016.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1971",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023230012",
+      "reason": "unclear",
+      "row": 4,
+      "sheet": "sheet-016.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1986",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023230014",
+      "reason": "no_change",
+      "row": 4,
+      "sheet": "sheet-016.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1989",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023230016",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-017.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2024",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023240007",
+      "reason": "ground_change_only",
+      "row": 2,
+      "sheet": "sheet-027.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023240009",
+      "reason": "ground_change_only",
+      "row": 2,
+      "sheet": "sheet-027.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023240011",
+      "reason": "ground_change_only",
+      "row": 3,
+      "sheet": "sheet-027.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023240012",
+      "reason": "ground_change_only",
+      "row": 3,
+      "sheet": "sheet-027.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023240013",
+      "reason": "ground_change_only",
+      "row": 4,
+      "sheet": "sheet-027.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023240015",
+      "reason": "ground_change_only",
+      "row": 4,
+      "sheet": "sheet-027.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023240017",
+      "reason": "ground_change_only",
+      "row": 0,
+      "sheet": "sheet-028.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023240018",
+      "reason": "ground_change_only",
+      "row": 0,
+      "sheet": "sheet-028.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023240020",
+      "reason": "ground_change_only",
+      "row": 1,
+      "sheet": "sheet-028.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023240021",
+      "reason": "ground_change_only",
+      "row": 1,
+      "sheet": "sheet-028.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023240022",
+      "reason": "ground_change_only",
+      "row": 2,
+      "sheet": "sheet-028.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023240023",
+      "reason": "ground_change_only",
+      "row": 2,
+      "sheet": "sheet-028.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023240024",
+      "reason": "ground_change_only",
+      "row": 3,
+      "sheet": "sheet-028.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023240026",
+      "reason": "ground_change_only",
+      "row": 3,
+      "sheet": "sheet-028.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023240031",
+      "reason": "no_change",
+      "row": 4,
+      "sheet": "sheet-028.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023240033",
+      "reason": "no_change",
+      "row": 4,
+      "sheet": "sheet-028.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2025",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023240035",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-029.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2025",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023240036",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-029.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023240037",
+      "reason": "ground_change_only",
+      "row": 1,
+      "sheet": "sheet-029.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023240038",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-029.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023240042",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-029.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023240043",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-029.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023240044",
+      "reason": "no_change",
+      "row": 3,
+      "sheet": "sheet-029.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023240047",
+      "reason": "no_change",
+      "row": 3,
+      "sheet": "sheet-029.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023240048",
+      "reason": "no_change",
+      "row": 4,
+      "sheet": "sheet-029.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023240054",
+      "reason": "no_change",
+      "row": 4,
+      "sheet": "sheet-029.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023240057",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-030.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023240060",
+      "reason": "ground_change_only",
+      "row": 0,
+      "sheet": "sheet-030.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023240062",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-030.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023240067",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-030.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023240070",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-030.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "1977",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023310011",
+      "reason": "ground_change_only",
+      "row": 0,
+      "sheet": "sheet-017.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2014",
+      "column": 1,
+      "improved": true,
+      "pid": "2712023320003",
+      "reason": "structure_added",
+      "row": 2,
+      "sheet": "sheet-009.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2005",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023320007",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-017.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2006",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023320008",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-017.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2013",
+      "column": 0,
+      "improved": true,
+      "pid": "2712023320009",
+      "reason": "structure_added",
+      "row": 3,
+      "sheet": "sheet-009.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2014",
+      "column": 1,
+      "improved": true,
+      "pid": "2712023320010",
+      "reason": "structure_added",
+      "row": 3,
+      "sheet": "sheet-009.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2013",
+      "column": 0,
+      "improved": true,
+      "pid": "2712023320012",
+      "reason": "structure_added",
+      "row": 4,
+      "sheet": "sheet-009.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2014",
+      "column": 1,
+      "improved": true,
+      "pid": "2712023320013",
+      "reason": "structure_added",
+      "row": 4,
+      "sheet": "sheet-009.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2006",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023320014",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-017.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2013",
+      "column": 0,
+      "improved": true,
+      "pid": "2712023330002",
+      "reason": "structure_added",
+      "row": 0,
+      "sheet": "sheet-010.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2005",
+      "column": 1,
+      "improved": true,
+      "pid": "2712023330003",
+      "reason": "addition_or_outbuilding",
+      "row": 2,
+      "sheet": "sheet-017.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2006",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023330004",
+      "reason": "no_change",
+      "row": 3,
+      "sheet": "sheet-017.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2006",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023330005",
+      "reason": "ground_change_only",
+      "row": 3,
+      "sheet": "sheet-017.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2012",
+      "column": 1,
+      "improved": true,
+      "pid": "2712023330006",
+      "reason": "structure_added",
+      "row": 0,
+      "sheet": "sheet-010.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2025",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023340008",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-030.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023340011",
+      "reason": "unclear",
+      "row": 3,
+      "sheet": "sheet-030.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2024",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023340012",
+      "reason": "ground_change_only",
+      "row": 3,
+      "sheet": "sheet-030.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "1971",
+      "column": 0,
+      "improved": false,
+      "pid": "2712023420003",
+      "reason": "no_change",
+      "row": 4,
+      "sheet": "sheet-017.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1971",
+      "column": 1,
+      "improved": false,
+      "pid": "2712023420004",
+      "reason": "no_change",
+      "row": 4,
+      "sheet": "sheet-017.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1985",
+      "column": 0,
+      "improved": false,
+      "pid": "2812023130001",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-018.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2016",
+      "column": 0,
+      "improved": true,
+      "pid": "2812023130010",
+      "reason": "structure_added",
+      "row": 1,
+      "sheet": "sheet-010.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "1994",
+      "column": 1,
+      "improved": false,
+      "pid": "2812023130011",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-018.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2020",
+      "column": 1,
+      "improved": true,
+      "pid": "2812023130012",
+      "reason": "structure_added",
+      "row": 1,
+      "sheet": "sheet-010.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "1974",
+      "column": 0,
+      "improved": true,
+      "pid": "2812023130015",
+      "reason": "structure_added",
+      "row": 1,
+      "sheet": "sheet-018.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1989",
+      "column": 1,
+      "improved": false,
+      "pid": "2812023140003",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-018.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2006",
+      "column": 0,
+      "improved": false,
+      "pid": "2812023310018",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-018.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2013",
+      "column": 0,
+      "improved": true,
+      "pid": "2812023310020",
+      "reason": "structure_added",
+      "row": 2,
+      "sheet": "sheet-010.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2010",
+      "column": 1,
+      "improved": true,
+      "pid": "2812023310022",
+      "reason": "structure_added",
+      "row": 2,
+      "sheet": "sheet-018.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2016",
+      "column": 1,
+      "improved": true,
+      "pid": "2812023310024",
+      "reason": "structure_added",
+      "row": 2,
+      "sheet": "sheet-010.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "1997",
+      "column": 0,
+      "improved": false,
+      "pid": "2812023320001",
+      "reason": "no_change",
+      "row": 3,
+      "sheet": "sheet-018.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1979",
+      "column": 1,
+      "improved": false,
+      "pid": "2812023330006",
+      "reason": "no_change",
+      "row": 3,
+      "sheet": "sheet-018.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1980",
+      "column": 0,
+      "improved": false,
+      "pid": "2812023340004",
+      "reason": "no_change",
+      "row": 4,
+      "sheet": "sheet-018.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1980",
+      "column": 1,
+      "improved": true,
+      "pid": "2812023340005",
+      "reason": "addition_or_outbuilding",
+      "row": 4,
+      "sheet": "sheet-018.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1983",
+      "column": 0,
+      "improved": true,
+      "pid": "2812023340006",
+      "reason": "structure_added",
+      "row": 0,
+      "sheet": "sheet-019.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1984",
+      "column": 1,
+      "improved": false,
+      "pid": "2812023340008",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-019.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2006",
+      "column": 0,
+      "improved": false,
+      "pid": "2812023410003",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-019.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1933",
+      "column": 1,
+      "improved": false,
+      "pid": "2812023420001",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-019.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1992",
+      "column": 0,
+      "improved": false,
+      "pid": "2812023420003",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-019.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2015",
+      "column": 0,
+      "improved": true,
+      "pid": "2812023420008",
+      "reason": "structure_added",
+      "row": 3,
+      "sheet": "sheet-010.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2023",
+      "column": 0,
+      "improved": false,
+      "pid": "2812023420009",
+      "reason": "ground_change_only",
+      "row": 4,
+      "sheet": "sheet-030.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "1988",
+      "column": 1,
+      "improved": false,
+      "pid": "2812023430002",
+      "reason": "no_change",
+      "row": 2,
+      "sheet": "sheet-019.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1900",
+      "column": 0,
+      "improved": false,
+      "pid": "2812023430003",
+      "reason": "no_change",
+      "row": 3,
+      "sheet": "sheet-019.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2003",
+      "column": 1,
+      "improved": false,
+      "pid": "3312023110005",
+      "reason": "no_change",
+      "row": 3,
+      "sheet": "sheet-019.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2003",
+      "column": 0,
+      "improved": false,
+      "pid": "3312023110008",
+      "reason": "no_change",
+      "row": 4,
+      "sheet": "sheet-019.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2003",
+      "column": 1,
+      "improved": false,
+      "pid": "3312023110009",
+      "reason": "ground_change_only",
+      "row": 4,
+      "sheet": "sheet-019.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2006",
+      "column": 0,
+      "improved": true,
+      "pid": "3312023110011",
+      "reason": "structure_added",
+      "row": 0,
+      "sheet": "sheet-020.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2025",
+      "column": 1,
+      "improved": false,
+      "pid": "3312023110013",
+      "reason": "no_change",
+      "row": 4,
+      "sheet": "sheet-030.png",
+      "stratum": "negative_future"
+    },
+    {
+      "build_yr": "2003",
+      "column": 1,
+      "improved": false,
+      "pid": "3312023140003",
+      "reason": "no_change",
+      "row": 0,
+      "sheet": "sheet-020.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2003",
+      "column": 0,
+      "improved": false,
+      "pid": "3312023140005",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-020.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2003",
+      "column": 1,
+      "improved": false,
+      "pid": "3312023140007",
+      "reason": "no_change",
+      "row": 1,
+      "sheet": "sheet-020.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2003",
+      "column": 0,
+      "improved": true,
+      "pid": "3312023140008",
+      "reason": "addition_or_outbuilding",
+      "row": 2,
+      "sheet": "sheet-020.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2012",
+      "column": 1,
+      "improved": true,
+      "pid": "3312023220002",
+      "reason": "structure_added",
+      "row": 3,
+      "sheet": "sheet-010.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2012",
+      "column": 0,
+      "improved": true,
+      "pid": "3312023220005",
+      "reason": "structure_added",
+      "row": 4,
+      "sheet": "sheet-010.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "2011",
+      "column": 1,
+      "improved": true,
+      "pid": "3312023230003",
+      "reason": "structure_added",
+      "row": 4,
+      "sheet": "sheet-010.png",
+      "stratum": "positive"
+    },
+    {
+      "build_yr": "1974",
+      "column": 1,
+      "improved": true,
+      "pid": "3412023220001",
+      "reason": "addition_or_outbuilding",
+      "row": 2,
+      "sheet": "sheet-020.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1981",
+      "column": 0,
+      "improved": false,
+      "pid": "3412023230003",
+      "reason": "no_change",
+      "row": 3,
+      "sheet": "sheet-020.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2004",
+      "column": 1,
+      "improved": false,
+      "pid": "3412023240014",
+      "reason": "no_change",
+      "row": 3,
+      "sheet": "sheet-020.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "1984",
+      "column": 0,
+      "improved": false,
+      "pid": "3412023240015",
+      "reason": "ground_change_only",
+      "row": 4,
+      "sheet": "sheet-020.png",
+      "stratum": "negative_old"
+    },
+    {
+      "build_yr": "2006",
+      "column": 1,
+      "improved": false,
+      "pid": "3412023320007",
+      "reason": "ground_change_only",
+      "row": 4,
+      "sheet": "sheet-020.png",
+      "stratum": "negative_old"
+    }
+  ],
+  "method": "Every parcel in the set was read by eye from its base/target chip pair on the contact sheets in eval/out/chips/. `improved` is true when the target capture shows a structure the base capture does not; grading, crop change and pond drawdown are not improvements.",
+  "reasons": [
+    "addition_or_outbuilding",
+    "ground_change_only",
+    "no_change",
+    "structure_added",
+    "teardown_rebuild",
+    "unclear"
+  ],
+  "summary": {
+    "build_yr_disagreement_rate": 0.1033,
+    "build_yr_disagreements": 31,
+    "improved": 99,
+    "parcels": 300,
+    "per_stratum": {
+      "negative_future": {
+        "disagree": 1,
+        "improved": 1,
+        "parcels": 100,
+        "unclear": 1
+      },
+      "negative_old": {
+        "disagree": 14,
+        "improved": 14,
+        "parcels": 100,
+        "unclear": 1
+      },
+      "positive": {
+        "disagree": 16,
+        "improved": 84,
+        "parcels": 100,
+        "unclear": 1
+      }
+    },
+    "unclear": 3
+  },
+  "target_year": 2021
+}
