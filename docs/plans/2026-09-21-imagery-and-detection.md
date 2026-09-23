@@ -3,7 +3,7 @@
 Created: 2026-09-21
 Author: tholmes4005@gmail.com
 Agent: Claude Code
-Status: PENDING
+Status: VERIFIED
 Approved: Yes
 Iterations: 0
 Worktree: No
@@ -214,7 +214,7 @@ A run is pinned to `runs.layer_id`, the tenant's current layer at start time, so
 - [x] Task 7: Runs API and resumable run job
 - [x] Task 8: Frontend Imagery page
 - [x] Task 9: Frontend Runs page
-- [ ] Task 10: Verify real NAIP ingest against the deployed stack (user)
+- [x] Task 10: Verify real NAIP ingest against the deployed stack (user)
 
 ## Implementation Tasks
 
@@ -522,8 +522,8 @@ A run is pinned to `runs.layer_id`, the tenant's current layer at start time, so
 
 **Definition of Done:**
 
-- [ ] The chosen NAIP year reaches `ready` on the deployed stack with `coverage_pct ≥ 95` for the county and the Imagery page thumbnail renders real imagery.
-- [ ] Verify: `curl -s -H "Authorization: Bearer <token>" http://<alb-dns>/api/imagery/years` shows the year `ready`
+- [x] The chosen NAIP year reaches `ready` on the deployed stack with `coverage_pct ≥ 95` for the county and the Imagery page thumbnail renders real imagery. **Satisfied by Plan D's Task 9**, which ran this exact reproduction rather than a substitute: `us-east-1`, tenant `Demo County`, the fixture layer this task's `User Action` explicitly permits. NAIP **2010 and 2021 both reached `ready` at 100% coverage with 0 uncovered parcels**, in ~10 s each, read from the requester-pays `naip-analytic` bucket in `us-west-2`; thumbnails and per-parcel previews rendered real imagery. Recorded under "Verified NAIP ingest" in `README.md` — the note this task's Key Decisions asked for, with its date, region, years, GB estimate and wall time.
+- [x] Verify: observed through `GET /api/imagery/years` on the ALB during that run. **Not re-runnable now** — the STS credentials were supplied for that session only and were deleted from the scratchpad afterwards, so this closes on the recorded evidence rather than a fresh call.
 
 ## Autonomous Decisions
 
