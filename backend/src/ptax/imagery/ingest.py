@@ -1,4 +1,4 @@
-"""Imagery jobs: NAIP ingest, upload ingest, and coverage recomputation.
+"""Imagery jobs: NAIP ingest, county ArcGIS ingest, upload ingest, and coverage recomputation.
 
 Each handler owns its year's status transitions. A failure leaves the year ``failed``
 with a human-readable ``error`` (committed), then re-raises so the job is failed too,
@@ -19,6 +19,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ptax.config import get_settings
+from ptax.county import imagery as county_imagery
+from ptax.county.parcels import CountySourceError
 from ptax.db.models import ImageryAsset, ImageryYear, Job, Parcel, Tenant
 from ptax.imagery.cog import (
     MAX_BANDS,
@@ -184,6 +186,71 @@ def ingest_naip(db: Session, job: Job) -> None:
         db.rollback()
         raise
     except (ImageryError, NoParcelLayer) as exc:
+        _fail_year(db, year, str(exc))
+        raise
+    except Exception as exc:
+        _fail_year(db, year, f"ingest failed: {exc}")
+        raise
+
+
+@job_handler("imagery.ingest_arcgis")
+def ingest_arcgis(db: Session, job: Job) -> None:
+    """Build the year from the county tile cache at ``year.provider``, one COG per block.
+
+    Blocks already stored are skipped, so a re-claimed job resumes where it stopped.
+    """
+    year = db.get_one(ImageryYear, uuid.UUID(job.payload["year_id"]))
+    if year.status not in ("queued", "processing"):
+        return
+    year.status = "processing"
+    db.commit()
+    try:
+        if not year.provider:
+            raise ImageryError("no ArcGIS service recorded for this year")
+        service = year.provider
+        tenant = db.get_one(Tenant, year.tenant_id)
+        footprint = footprint_for(db, tenant)
+        done = set(
+            db.execute(
+                select(ImageryAsset.source_ref).where(
+                    ImageryAsset.year_id == year.id, ImageryAsset.status == "ready"
+                )
+            ).scalars()
+        )
+        with county_imagery.http_client() as client:
+            grid = county_imagery.tile_grid(client, service)
+            blocks = county_imagery.plan_blocks(grid, footprint)
+            for block, tiles in sorted(blocks.items()):
+                ref = county_imagery.block_ref(service, grid, block)
+                if ref in done:
+                    continue
+                _check_stop()
+                with tempfile.TemporaryDirectory() as tmp:
+                    mosaic = Path(tmp) / "mosaic.tif"
+                    if county_imagery.write_block(client, service, grid, block, tiles, mosaic) == 0:
+                        log.warning("year %s: the cache has no tiles for %s", year.id, ref)
+                        continue
+                    cog = Path(tmp) / "block.tif"
+                    to_cog(str(mosaic), cog)
+                    asset = ImageryAsset(
+                        id=uuid.uuid4(),
+                        tenant_id=year.tenant_id,
+                        year_id=year.id,
+                        status="pending",
+                        s3_key="",
+                        source_ref=ref,
+                    )
+                    db.add(asset)
+                    store_cog(db, asset, cog)
+                log.info("year %s: stored %s (%d tiles)", year.id, ref, len(tiles))
+        compute_coverage(db, year, footprint)
+        year.status = "ready"
+        year.error = None
+        db.commit()
+    except JobInterrupted:
+        db.rollback()
+        raise
+    except (ImageryError, NoParcelLayer, CountySourceError) as exc:
         _fail_year(db, year, str(exc))
         raise
     except Exception as exc:

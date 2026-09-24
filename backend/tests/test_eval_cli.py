@@ -92,18 +92,18 @@ def test_importing_the_registry_never_imports_torch() -> None:
     assert result.stdout.strip() == "False"
 
 
-def test_the_year_bias_report_reads_the_segmenters_building_fractions(capsys) -> None:
+def test_the_year_bias_report_reads_the_built_up_fractions(capsys) -> None:
     from ptax.eval.cli import _report_year_bias
 
     _report_year_bias(
         {
-            "a": {"base_building_frac": 0.2, "target_building_frac": 0.3},
-            "b": {"base_building_frac": 0.4, "target_building_frac": 0.4},
+            "a": {"base_builtup_frac": 0.2, "target_builtup_frac": 0.3},
+            "b": {"base_builtup_frac": 0.4, "target_builtup_frac": 0.4},
         }
     )
 
     out = capsys.readouterr().out
-    assert "base_building_frac" in out and "(n=2)" in out
+    assert "base_builtup_frac" in out and "(n=2)" in out
     assert "n=0" not in out
 
 

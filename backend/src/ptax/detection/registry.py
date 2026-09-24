@@ -1,10 +1,4 @@
-"""Detectors by name, so a caller can choose one without importing all of them.
-
-The learned detector depends on torch, which only the optional ``ml`` dependency group
-installs and the production image never does. Each entry is therefore a factory that
-imports its module when called: importing this registry, or choosing ``classical``, never
-touches torch.
-"""
+"""Detectors by name, so a caller (the evaluation harness) can choose one by its name."""
 
 from collections.abc import Callable
 
@@ -15,17 +9,9 @@ def _classical() -> Detector:
     return ClassicalDetector()
 
 
-def _segmentation() -> Detector:
-    # The module is torch-free; the model it loads is not, so it is imported on demand.
-    from ptax.detection import learned
-
-    return learned.from_model_card()
-
-
 #: Every selectable detector. ``classical`` is the default everywhere a name is optional.
 DETECTORS: dict[str, Callable[[], Detector]] = {
     "classical": _classical,
-    "segmentation": _segmentation,
 }
 DEFAULT_DETECTOR = "classical"
 

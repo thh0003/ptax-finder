@@ -143,24 +143,49 @@ test("HTTPS listener and redirect appear only when a certificate is supplied", (
   tls.hasResourceProperties("AWS::ElasticLoadBalancingV2::Listener", { Port: 443, Protocol: "HTTPS" });
 });
 
-test("the API runs the torch-free app image and the worker runs the worker image", () => {
-  // The Dockerfile's last stage is `worker`, which is Docker's default target, so the API
-  // asset must name `app` explicitly -- differing image URIs alone would not catch that.
+test("both services run the one app image, built for Fargate's platform", () => {
   const manifests = app
     .synth()
     .artifacts.filter((a): a is cxapi.AssetManifestArtifact => a instanceof cxapi.AssetManifestArtifact);
   const images = manifests.flatMap((m) => Object.values(m.contents.dockerImages ?? {}));
-  const targets = images.map((i) => i.source.dockerBuildTarget).sort();
-  expect(targets).toEqual(["app", "worker"]);
+  expect(images.map((i) => i.source.dockerBuildTarget)).toEqual(["app"]);
   for (const i of images) expect(i.source.platform).toBe("linux/amd64");
 
-  const api = containerDefs("api");
-  const worker = containerDefs("worker");
-  expect(JSON.stringify(api.Image)).not.toEqual(JSON.stringify(worker.Image));
+  expect(JSON.stringify(containerDefs("api").Image)).toEqual(JSON.stringify(containerDefs("worker").Image));
+  for (const name of ["api", "worker"]) {
+    expect(envMap(containerDefs(name)).SEGMENTER_MODEL).toBeUndefined();
+  }
 });
 
-test("both tasks name the segmenter model runs use", () => {
+test("the pipeline bucket is KMS-encrypted with a rotating customer key, private and SSL-only", () => {
+  data.hasResourceProperties("AWS::KMS::Key", { EnableKeyRotation: true });
+  data.hasResourceProperties("AWS::S3::Bucket", {
+    BucketEncryption: {
+      ServerSideEncryptionConfiguration: [
+        Match.objectLike({
+          ServerSideEncryptionByDefault: Match.objectLike({
+            SSEAlgorithm: "aws:kms",
+            KMSMasterKeyID: Match.anyValue(),
+          }),
+        }),
+      ],
+    },
+    PublicAccessBlockConfiguration: { BlockPublicAcls: true, RestrictPublicBuckets: true },
+    VersioningConfiguration: { Status: "Enabled" },
+  });
+  data.hasResource("AWS::S3::Bucket", {
+    Properties: Match.objectLike({ BucketEncryption: Match.anyValue() }),
+    DeletionPolicy: "Retain",
+  });
+});
+
+test("both tasks get the pipeline bucket and may read only per-tenant ArcGIS secrets", () => {
   for (const name of ["api", "worker"]) {
-    expect(envMap(containerDefs(name)).SEGMENTER_MODEL).toBe("segmenter-v1");
+    expect(envMap(containerDefs(name)).PIPELINE_BUCKET).toBeDefined();
   }
+  const policies = JSON.stringify(compute.findResources("AWS::IAM::Policy"));
+  expect(policies).toContain("kms:Decrypt");
+  expect(policies).toContain("secretsmanager:GetSecretValue");
+  expect(policies).toContain("secret:ptax/tenants/*");
+  expect(policies).not.toMatch(/secretsmanager:GetSecretValue[^\]]*"Resource":"\*"/);
 });

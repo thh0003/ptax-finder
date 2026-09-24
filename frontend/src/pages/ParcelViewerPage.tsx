@@ -6,7 +6,9 @@ import {
   detectorLabel,
   getRunParcel,
   indicatorsFor,
+  inventoryOf,
   parcelImageUrls,
+  runLabel,
   type Indicator,
   type Run,
   type RunParcelDetail,
@@ -20,12 +22,29 @@ const SKIP_REASONS: Record<string, string> = {
   no_coverage_base: "No imagery covers this parcel in the base year.",
   no_coverage_target: "No imagery covers this parcel in the target year.",
   partial_coverage: "Imagery covers too little of this parcel to compare the two years.",
+  no_coverage: "No imagery covers this parcel in this year.",
+  model_error: "The vision model did not give a usable answer for this parcel, even when asked twice.",
 };
 
-function formatIndicator(value: number | string | null | undefined, indicator: Indicator): string {
+/** The county record fields a reviewer compares the inventory against, in reading order. */
+const COUNTY_FIELDS: { key: string; label: string; unit?: string }[] = [
+  { key: "year_built", label: "Year built" },
+  { key: "eff_year_built", label: "Effective year built" },
+  { key: "total_living_area", label: "Living area", unit: "sq ft" },
+  { key: "gar_area", label: "Garage area", unit: "sq ft" },
+  { key: "det_gar_area", label: "Detached garage area", unit: "sq ft" },
+  { key: "PropClass", label: "Property class" },
+];
+
+function formatIndicator(value: unknown, indicator: Indicator): string {
   if (value === null || value === undefined) return "—";
   if (indicator.percent && typeof value === "number") return `${(value * 100).toFixed(1)}%`;
-  return `${value} ${indicator.unit}`;
+  return `${String(value)} ${indicator.unit}`;
+}
+
+function formatCounty(value: string | number | boolean | null | undefined, unit?: string): string {
+  if (value === null || value === undefined || value === "") return "—";
+  return unit ? `${String(value)} ${unit}` : String(value);
 }
 
 type Loaded = { url: string | null; error: string | null };
@@ -106,7 +125,7 @@ export default function ParcelViewerPage() {
           runId,
           parcelId,
           baseYearId: run.base_year.id,
-          targetYearId: run.target_year.id,
+          targetYearId: run.target_year?.id ?? null,
         })
       : null;
 
@@ -120,8 +139,21 @@ export default function ParcelViewerPage() {
 
   const yearOf = (id: string) => years.find((y) => y.id === id);
   const baseLabel = yearOf(run.base_year.id);
-  const targetLabel = yearOf(run.target_year.id);
   const skipped = parcel.skipped_reason;
+
+  if (run.kind === "inventory" || run.target_year === null) {
+    return (
+      <InventoryParcel
+        run={run}
+        parcel={parcel}
+        yearTitle={baseLabel ? yearLabel(baseLabel) : `${run.base_year.year}`}
+        plain={base}
+        overlay={overlay}
+      />
+    );
+  }
+  const targetYear = run.target_year;
+  const targetLabel = yearOf(targetYear.id);
 
   return (
     <section className="flex flex-col gap-6">
@@ -129,7 +161,7 @@ export default function ParcelViewerPage() {
         <div>
           <h1 className="text-xl font-semibold">Parcel {parcel.parcel_ref}</h1>
           <p className="text-sm text-slate-600">
-            {run.base_year.year} → {run.target_year.year} · Detected by{" "}
+            {runLabel(run)} · Detected by{" "}
             <span data-testid="detected-by">{detectorLabel(run)}</span>{" "}
             <Link to="/runs" className="underline">
               back to runs
@@ -161,7 +193,7 @@ export default function ParcelViewerPage() {
           empty="No imagery for this year"
         />
         <Pane
-          title={targetLabel ? yearLabel(targetLabel) : `${run.target_year.year}`}
+          title={targetLabel ? yearLabel(targetLabel) : `${targetYear.year}`}
           image={target}
           empty="No imagery for this year"
         />
@@ -203,6 +235,130 @@ export default function ParcelViewerPage() {
           ))}
         </dl>
       ) : null}
+    </section>
+  );
+}
+
+/**
+ * An inventory parcel: its one year, with the model's structures outlined (toggleable),
+ * what the model said, and the county's record to check it against.
+ */
+function InventoryParcel({
+  run,
+  parcel,
+  yearTitle,
+  plain,
+  overlay,
+}: {
+  run: Run;
+  parcel: RunParcelDetail;
+  yearTitle: string;
+  plain: Loaded;
+  overlay: Loaded;
+}) {
+  const [showMarkup, setShowMarkup] = useState(true);
+  const { structures, summary } = inventoryOf(parcel.indicators);
+  const skipped = parcel.skipped_reason;
+  const marked = parcel.has_markup && showMarkup;
+
+  return (
+    <section className="flex flex-col gap-6">
+      <header>
+        <h1 className="text-xl font-semibold">Parcel {parcel.parcel_ref}</h1>
+        <p className="text-sm text-slate-600">
+          <span data-testid="run-label">{runLabel(run)}</span>{" "}
+          <Link to="/runs" className="underline">
+            back to runs
+          </Link>
+        </p>
+      </header>
+
+      {skipped ? (
+        <p
+          className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+          data-testid="skip-reason"
+        >
+          {SKIP_REASONS[skipped] ?? `This parcel was not read (${skipped}).`}
+        </p>
+      ) : null}
+
+      <div className="flex flex-col gap-6 lg:flex-row">
+        <div className="flex max-w-xl flex-1 flex-col gap-2" data-testid="panes">
+          <Pane
+            title={marked ? `${yearTitle}, structures marked` : yearTitle}
+            image={marked ? overlay : plain}
+            empty="No imagery for this year"
+          />
+          {parcel.has_markup ? (
+            <label className="flex w-fit items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={showMarkup}
+                onChange={(e) => setShowMarkup(e.target.checked)}
+                data-testid="markup-toggle"
+              />
+              Show structures
+            </label>
+          ) : null}
+        </div>
+
+        <div className="flex flex-1 flex-col gap-5 text-sm">
+          {summary ? (
+            <p className="text-slate-800" data-testid="inventory-summary">
+              {summary}
+            </p>
+          ) : null}
+          {!skipped ? (
+            structures.length > 0 ? (
+              <table className="w-full max-w-sm text-left" data-testid="structures">
+                <thead className="text-xs text-slate-500">
+                  <tr>
+                    <th className="py-1 font-medium">Structure</th>
+                    <th className="py-1 font-medium">Confidence</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {structures.map((structure, index) => (
+                    <tr key={index} data-testid="structure-row">
+                      <td className="py-1">{structure.kind}</td>
+                      <td className="py-1 tabular-nums">{structure.confidence.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className="text-slate-600" data-testid="no-structures">
+                The model found no structures on this parcel.
+              </p>
+            )
+          ) : null}
+
+          <div>
+            <h2 className="mb-1 text-sm font-medium text-slate-600">County record</h2>
+            {parcel.parcel_attributes ? (
+              <dl className="grid max-w-sm grid-cols-2 gap-x-6 gap-y-1" data-testid="county-record">
+                {COUNTY_FIELDS.map((field) => (
+                  <div key={field.key} className="contents">
+                    <dt className="text-slate-600">{field.label}</dt>
+                    <dd className="tabular-nums">
+                      {formatCounty(parcel.parcel_attributes?.[field.key], field.unit)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            ) : (
+              <p className="text-slate-600">No county record for this parcel.</p>
+            )}
+          </div>
+
+          <p className="text-xs text-slate-500">
+            Read by <span data-testid="detected-by">{detectorLabel(run)}</span>
+            {typeof parcel.indicators?.resolution_m === "number"
+              ? ` at ${parcel.indicators.resolution_m} m/px`
+              : ""}
+          </p>
+        </div>
+      </div>
     </section>
   );
 }

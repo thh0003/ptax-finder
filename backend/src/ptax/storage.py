@@ -62,3 +62,26 @@ def presign_put(settings: Settings, key: str, content_type: str) -> str:
         Params={"Bucket": settings.s3_bucket, "Key": key, "ContentType": content_type},
         ExpiresIn=PRESIGN_EXPIRES_SECONDS,
     )
+
+
+class TenantKeyError(ValueError):
+    """An object key outside the tenant's own prefix."""
+
+
+def _tenant_prefix(tenant_id: uuid.UUID) -> str:
+    return f"tenants/{tenant_id}/"
+
+
+def assert_tenant_key(tenant_id: uuid.UUID, key: str) -> None:
+    """Refuse any key that is not strictly inside ``tenants/<tenant_id>/``."""
+    prefix = _tenant_prefix(tenant_id)
+    parts = key.split("/")
+    if not key.startswith(prefix) or key == prefix or ".." in parts or "." in parts:
+        raise TenantKeyError(f"{key!r} is outside tenant {tenant_id}'s prefix")
+
+
+def pipeline_key(tenant_id: uuid.UUID, *parts: str) -> str:
+    """A pipeline object key under the tenant's prefix, e.g. ``tenants/<id>/raw/2015/x.tif``."""
+    key = _tenant_prefix(tenant_id) + "/".join(parts)
+    assert_tenant_key(tenant_id, key)
+    return key

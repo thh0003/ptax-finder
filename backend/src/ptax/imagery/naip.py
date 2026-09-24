@@ -50,12 +50,14 @@ class NaipStacSource:
 
     def _search(self, footprint: BaseGeometry, year: int | None = None) -> list[NaipItem]:
         minx, miny, maxx, maxy = footprint.bounds
-        params: dict[str, Any] | None = {
+        query: dict[str, Any] = {
             "bbox": f"{minx},{miny},{maxx},{maxy}",
             "limit": PAGE_LIMIT,
         }
         if year is not None:
-            params["datetime"] = f"{year}-01-01T00:00:00Z/{year}-12-31T23:59:59Z"
+            query["datetime"] = f"{year}-01-01T00:00:00Z/{year}-12-31T23:59:59Z"
+        # Later pages carry their own query in the next link, so params drop to None.
+        params: dict[str, Any] | None = query
         url: str | None = f"{self._stac_url}/collections/naip/items"
         items: list[NaipItem] = []
         pages = 0

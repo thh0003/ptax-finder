@@ -36,3 +36,6 @@ backend/eval/models/*.pt
 .DS_Store
 .idea/
 .vscode/
+
+# The model proxy key (see the vision settings); never committed.
+access-qwen.md

@@ -15,7 +15,7 @@ export type ImageryAsset = {
 export type ImageryYear = {
   id: string;
   year: number;
-  source: "naip" | "upload";
+  source: "naip" | "upload" | "arcgis";
   provider: string | null;
   status: ImageryYearStatus;
   band_count: number | null;
@@ -47,8 +47,15 @@ export function contentTypeForImagery(filename: string): string | null {
   return lower.endsWith(".tif") || lower.endsWith(".tiff") ? "image/tiff" : null;
 }
 
+/** An ArcGIS year's provider is its service URL; the service name is what reads. */
+function providerName(source: string, provider: string): string {
+  if (source !== "arcgis") return provider;
+  const match = /\/services\/(?:[^/]+\/)*([^/]+)\/(?:Map|Image)Server\/?$/.exec(provider);
+  return match ? match[1] : provider;
+}
+
 export function yearLabel(year: { year: number; source: string; provider?: string | null }): string {
-  const provider = year.provider ? ` (${year.provider})` : "";
+  const provider = year.provider ? ` (${providerName(year.source, year.provider)})` : "";
   return `${year.year} · ${year.source}${provider}`;
 }
 

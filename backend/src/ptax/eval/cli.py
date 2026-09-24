@@ -2,10 +2,16 @@
 
     ptax-eval build --aoi nw-hennepin --base-year 2010 --target-year 2021
     ptax-eval fetch eval/nw-hennepin-2010-2021.json --verify
-    ptax-eval score eval/nw-hennepin-2010-2021.json [--detector segmentation]
-    ptax-eval train-data && ptax-eval train      # the segmenter; needs `--group ml`
+    ptax-eval score eval/nw-hennepin-2010-2021.json
 
-This is development tooling. It never touches the database, the job queue or S3.
+    ptax-eval inventory-sample --tenant-fips 17143 --name peoria-richwoods-2015
+    ptax-eval inventory-sheets eval/inventory-sample-peoria-richwoods-2015.json --year 2015
+    ptax-eval inventory-score --run <id> --labels eval/inventory-labels-...json
+
+This is development tooling. The change-detection commands never touch the database, the
+job queue or S3. The `inventory-*` commands measure a run the app made, so they *read*
+the local database and object store (the tenant's parcels, imagery and run results); they
+never write to either.
 """
 
 import json
@@ -75,8 +81,6 @@ from ptax.eval.metrics import (
     stratum_counts,
     summarise,
 )
-from ptax.eval.training_data import DEFAULT_YEARS as DEFAULT_TRAIN_YEARS
-from ptax.eval.training_data import TRAINING_DIR, build_training_data
 from ptax.imagery.reader import read_parcel_uris
 
 app = typer.Typer(help="ptax-finder detector evaluation harness", no_args_is_help=True)
@@ -84,7 +88,6 @@ app = typer.Typer(help="ptax-finder detector evaluation harness", no_args_is_hel
 #: Sets and their caches live beside the backend package, not in tests/: they are measured
 #: evidence rather than fixtures, and the cache is far too large to commit.
 EVAL_DIR = Path("eval")
-MODELS_DIR = EVAL_DIR / "models"
 DEFAULT_SEED = 20260922
 
 #: Cap on how many per-parcel problems `--verify` prints before it stops listing them.
@@ -98,9 +101,6 @@ def _set_path(aoi: str, base_year: int, target_year: int) -> Path:
 def _cache_dir(set_path: Path) -> Path:
     return set_path.parent / "cache" / set_path.stem
 
-
-#: The evaluation compares 2010 against 2021, so training must include 2010-vintage NAIP.
-BASE_YEAR_FOR_TRAINING = 2010
 
 _DETECTOR_HELP = f"detector to evaluate; one of: {', '.join(DETECTORS)}"
 
@@ -506,12 +506,8 @@ def _rank(scores: dict[str, float | None]) -> list[str]:
 
 #: Indicators whose per-year distributions expose a capture-level bias, per detector.
 #: Plan B attributed `target_builtup_frac` 0.937 to texture scale; this is what confirms or
-#: refutes it. For the segmenter, a base-year building fraction well below the target's
-#: would mean it under-reads 2010 roofs and calls standing buildings new.
-_YEAR_STATISTICS = (
-    ("base_builtup_frac", "target_builtup_frac"),
-    ("base_building_frac", "target_building_frac"),
-)
+#: refutes it.
+_YEAR_STATISTICS = (("base_builtup_frac", "target_builtup_frac"),)
 
 
 def _quartiles(values: list[float]) -> tuple[float, float, float]:
@@ -728,54 +724,6 @@ def chips(
     typer.echo(f"  index: {out_dir / 'index.json'}")
 
 
-@app.command("train-data")
-def train_data(
-    year: list[int] = typer.Option(
-        list(DEFAULT_TRAIN_YEARS), "--year", help="NAIP years to draw chips from (repeatable)"
-    ),
-    out: Path = typer.Option(TRAINING_DIR, help="where shards and the manifest are written"),
-) -> None:
-    """Cut segmenter training chips from the training AOIs -- never the evaluation AOI."""
-    if BASE_YEAR_FOR_TRAINING not in year or len(set(year)) < 3:
-        raise typer.BadParameter(
-            f"use at least three years including {BASE_YEAR_FOR_TRAINING}, the evaluation's"
-            " base-year vintage"
-        )
-    manifest = build_training_data(out, sorted(set(year)), echo=typer.echo)
-    kept = [name for name, record in manifest["aois"].items() if "dropped" not in record]
-    if not kept:
-        typer.echo("every training AOI was dropped; no training data written", err=True)
-        raise typer.Exit(code=1)
-    typer.echo(f"manifest: {out / 'manifest.json'} ({len(kept)} AOIs)")
-
-
-@app.command("train")
-def train_segmenter(
-    name: str = typer.Option(
-        "segmenter-v1", help="candidate name; an existing card is frozen and never replaced"
-    ),
-    manifest: Path = typer.Option(
-        TRAINING_DIR / "manifest.json", help="training-data manifest from `train-data`"
-    ),
-    models_dir: Path = typer.Option(MODELS_DIR, help="where weights and the card are written"),
-    device: str | None = typer.Option(None, help="torch device; default mps, else cpu"),
-) -> None:
-    """Train the building segmenter and freeze it with a model card (needs `--group ml`)."""
-    # Imported here, not at module level: torch is in the optional `ml` group only.
-    from ptax.learn.train import train
-
-    try:
-        card = train(manifest, models_dir, name, device=device, echo=typer.echo)
-    except FileExistsError as exc:
-        raise typer.BadParameter(str(exc)) from exc
-    typer.echo(
-        f"froze {name}: validation IoU {card['validation_iou']} at cutoff {card['cutoff']},"
-        f" per year {card['validation_iou_per_year']}, {card['stopped']}"
-        f" after {card['epochs_run']} epochs"
-    )
-    typer.echo(f"  card: {models_dir / (name + '.json')}")
-
-
 def _report_audited(
     eval_set: EvalSet,
     results: list[ScoredParcel],
@@ -964,6 +912,213 @@ def _marks(outcome: ChangeResult | None) -> tuple[Any, Any] | None:
     if outcome is None or outcome.new_builtup_mask is None or outcome.structure_mask is None:
         return None
     return outcome.new_builtup_mask, outcome.structure_mask
+
+
+# --- Structure inventory: sample, labelling sheets, score ----------------------------------
+
+
+def _local_db() -> Any:
+    """A read session on the app's database (settings from the environment / .env)."""
+    from sqlalchemy.orm import Session
+
+    from ptax.config import get_settings
+    from ptax.db.session import get_engine
+
+    return Session(get_engine(get_settings().database_url))
+
+
+def _tenant_by_fips(db: Any, fips: str) -> Any:
+    from sqlalchemy import select
+
+    from ptax.db.models import Tenant
+
+    tenant = db.execute(select(Tenant).where(Tenant.fips == fips)).scalar_one_or_none()
+    if tenant is None or tenant.current_parcel_layer_id is None:
+        raise typer.BadParameter(f"no tenant {fips} with a parcel layer")
+    return tenant
+
+
+@app.command("inventory-sample")
+def inventory_sample(
+    tenant_fips: str = typer.Option(..., help="tenant whose current parcel layer to sample"),
+    name: str = typer.Option(..., help="e.g. peoria-richwoods-2015; names the output files"),
+    seed: int = typer.Option(DEFAULT_SEED),
+) -> None:
+    """Draw the stratified 200-parcel label sample and write its empty labels template."""
+    from sqlalchemy import select
+
+    from ptax.db.models import Parcel
+    from ptax.eval.inventory import STRATA, draw_sample, labels_template, stratum_of
+
+    with _local_db() as db:
+        tenant = _tenant_by_fips(db, tenant_fips)
+        rows = db.execute(
+            select(Parcel.parcel_ref, Parcel.attributes).where(
+                Parcel.layer_id == tenant.current_parcel_layer_id
+            )
+        ).all()
+    population = {name_: 0 for name_ in STRATA}
+    for _, attributes in rows:
+        population[stratum_of(attributes or {})] += 1
+    sample = draw_sample(((ref, attrs or {}) for ref, attrs in rows), seed=seed)
+    sample_path = EVAL_DIR / f"inventory-sample-{name}.json"
+    labels_path = EVAL_DIR / f"inventory-labels-{name}.json"
+    if labels_path.exists():
+        raise typer.BadParameter(f"{labels_path} exists; it may hold labels, so it is not replaced")
+    sample_path.write_text(
+        json.dumps(
+            {
+                "tenant_fips": tenant_fips,
+                "seed": seed,
+                "population": population,
+                "parcels": sample,
+            },
+            indent=2,
+        )
+        + "\n"
+    )
+    labels_path.write_text(json.dumps(labels_template(sample), indent=2) + "\n")
+    drawn: dict[str, int] = {}
+    for parcel in sample:
+        drawn[parcel["stratum"]] = drawn.get(parcel["stratum"], 0) + 1
+    for stratum in STRATA:
+        typer.echo(f"  {stratum:<16} {drawn.get(stratum, 0):>4} of {population[stratum]}")
+    typer.echo(f"wrote {sample_path} and {labels_path}")
+
+
+@app.command("inventory-sheets")
+def inventory_sheets(
+    sample_file: Path = typer.Argument(..., help="the sample written by inventory-sample"),
+    year: int = typer.Option(..., help="imagery year to draw the parcels from"),
+    out_dir: Path = typer.Option(EVAL_DIR / "out" / "inventory-sheets"),
+    cell_px: int = typer.Option(384, help="side of each parcel's cell"),
+) -> None:
+    """Numbered, blind contact sheets of the sample for labelling by eye."""
+    from geoalchemy2.shape import to_shape
+    from sqlalchemy import select
+
+    from ptax.config import get_settings
+    from ptax.db.models import ImageryYear, Parcel
+    from ptax.eval.inventory import render_sheets
+    from ptax.imagery.preview import plan_view
+    from ptax.imagery.reader import assets_intersecting, read_parcel
+    from ptax.vision.inventory import BUFFER
+
+    sample = json.loads(sample_file.read_text())
+    settings = get_settings()
+    with _local_db() as db:
+        tenant = _tenant_by_fips(db, sample["tenant_fips"])
+        imagery = db.execute(
+            select(ImageryYear).where(
+                ImageryYear.tenant_id == tenant.id,
+                ImageryYear.year == year,
+                ImageryYear.status == "ready",
+            )
+        ).scalar_one_or_none()
+        if imagery is None:
+            raise typer.BadParameter(f"no ready {year} imagery for tenant {tenant.fips}")
+        parcels = {
+            p.parcel_ref: p
+            for p in db.execute(
+                select(Parcel).where(
+                    Parcel.layer_id == tenant.current_parcel_layer_id,
+                    Parcel.parcel_ref.in_([s["PIN"] for s in sample["parcels"]]),
+                )
+            ).scalars()
+        }
+
+        def raster_for(pin: str) -> ParcelRaster | None:
+            parcel = parcels.get(pin)
+            if parcel is None:
+                return None
+            geom = to_shape(parcel.geom)
+            view = plan_view(geom, size=cell_px, buffer=BUFFER)
+            assets = assets_intersecting(db, tenant.id, imagery.id, view.search_bbox)
+            return read_parcel(
+                settings, assets, geom, resolution_m=view.resolution_m, buffer_m=view.buffer_m
+            )
+
+        index = render_sheets(sample["parcels"], raster_for, out_dir, cell_px=cell_px)
+    missing = [c["n"] for c in index["cells"] if not c["imagery"]]
+    sheets = len({c["sheet"] for c in index["cells"]})
+    typer.echo(f"wrote {sheets} sheets of {len(index['cells'])} parcels to {out_dir}")
+    if missing:
+        typer.echo(f"  no imagery for parcels {missing}")
+
+
+def _percent(value: float | None) -> str:
+    return "  —  " if value is None else f"{value:5.1%}"
+
+
+@app.command("inventory-score")
+def inventory_score(
+    labels_file: Path = typer.Option(..., "--labels", help="the filled labels file"),
+    run_id: str | None = typer.Option(None, "--run", help="the inventory run to score"),
+    check_labels: bool = typer.Option(
+        False, "--check-labels", help="only check the labels file is complete"
+    ),
+) -> None:
+    """Score an inventory run against the labels, per kind, against the accepted bar."""
+    import uuid
+
+    from sqlalchemy import select
+
+    from ptax.db.models import Parcel, Run, RunParcel
+    from ptax.eval.inventory import LabelError, read_labels, score_inventory
+
+    try:
+        labels = read_labels(labels_file)
+    except LabelError as exc:
+        typer.secho(str(exc), fg=typer.colors.RED)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"{len(labels)} parcels labelled, all complete")
+    if check_labels:
+        return
+    if run_id is None:
+        raise typer.BadParameter("--run is required to score")
+
+    with _local_db() as db:
+        run = db.get(Run, uuid.UUID(run_id))
+        if run is None or run.kind != "inventory":
+            raise typer.BadParameter(f"{run_id} is not an inventory run")
+        rows = db.execute(
+            select(RunParcel.parcel_ref, RunParcel.skipped_reason, RunParcel.indicators).where(
+                RunParcel.run_id == run.id, RunParcel.parcel_ref.in_(list(labels))
+            )
+        ).all()
+        county = dict(
+            db.execute(
+                select(Parcel.parcel_ref, Parcel.attributes).where(
+                    Parcel.layer_id == run.layer_id, Parcel.parcel_ref.in_(list(labels))
+                )
+            ).all()
+        )
+    predicted: dict[str, dict[str, int] | None] = {pin: None for pin in labels}
+    for ref, skipped, indicators in rows:
+        if skipped is None:
+            predicted[ref] = dict((indicators or {}).get("counts") or {})
+    report = score_inventory(predicted, labels, {k: v or {} for k, v in county.items()})
+
+    typer.echo(f"run {run.id} ({run.model_name}); {report.scored} parcels scored")
+    typer.echo(f"  {'kind':<8}{'N':>5}  precision  recall  exact count  bar    verdict")
+    for result in report.kinds.values():
+        typer.echo(
+            f"  {result.kind:<8}{result.n:>5}  {_percent(result.precision):>9}"
+            f"  {_percent(result.recall):>6}  {_percent(result.exact_count_rate):>11}"
+            f"  {result.bar:<5.2f}  {result.verdict}"
+        )
+    empty = report.no_structures
+    typer.echo(
+        f"  no structures: {_percent(empty.rate)} correct of {empty.n}"
+        f" (bar {empty.bar:.2f}): {empty.verdict}"
+    )
+    typer.echo("  county record agreement:")
+    for description, (agreeing, total) in report.county.items():
+        rate = agreeing / total if total else None
+        typer.echo(f"    {description}: {agreeing} of {total} ({_percent(rate).strip()})")
+    if report.unscored:
+        typer.echo(f"  not scored (model error, no imagery or not reached): {report.unscored}")
+
 
 if __name__ == "__main__":
     app()

@@ -34,10 +34,12 @@ class UserRole(enum.StrEnum):
 
 PARCEL_LAYER_STATUSES = ("uploaded", "inspecting", "awaiting_field", "ingesting", "ready", "failed")
 JOB_STATUSES = ("queued", "running", "succeeded", "failed")
-IMAGERY_SOURCES = ("naip", "upload")
+IMAGERY_SOURCES = ("naip", "upload", "arcgis")
 IMAGERY_YEAR_STATUSES = ("queued", "processing", "ready", "failed")
 IMAGERY_ASSET_STATUSES = ("pending", "ready", "failed")
 RUN_STATUSES = ("queued", "running", "succeeded", "failed", "cancelled")
+RUN_KINDS = ("change", "inventory")
+RUN_DETECTORS = ("classical", "segmentation", "vision")
 
 
 def _in_check(column: str, values: tuple[str, ...], name: str) -> CheckConstraint:
@@ -171,7 +173,8 @@ def _tenant_fk(index: bool = True) -> Mapped[uuid.UUID]:
 
 
 class ImageryYear(Base):
-    """One year of imagery for a tenant, from NAIP or an upload; a set of COG assets."""
+    """One year of imagery for a tenant, from NAIP, an upload or a county ArcGIS tile cache;
+    a set of COG assets."""
 
     __tablename__ = "imagery_years"
     __table_args__ = (
@@ -235,14 +238,23 @@ class ImageryAsset(Base):
 
 
 class Run(Base):
-    """A base-year vs target-year comparison over the parcel layer current at start time."""
+    """A run over the parcel layer current at start time: a base-year vs target-year
+    comparison (``change``), or a single-year structure ``inventory`` (0007), whose one
+    year is ``base_year_id`` and whose ``target_year_id`` is NULL."""
 
     __tablename__ = "runs"
     __table_args__ = (
         _in_check("status", RUN_STATUSES, "runs_status_check"),
-        _in_check("detector", ("classical", "segmentation"), "runs_detector_check"),
+        _in_check("kind", RUN_KINDS, "runs_kind_check"),
+        _in_check("detector", RUN_DETECTORS, "runs_detector_check"),
         CheckConstraint(
             "(detector = 'segmentation') = (model_sha256 IS NOT NULL)", name="runs_model_check"
+        ),
+        CheckConstraint(
+            "(kind = 'inventory') = (target_year_id IS NULL)", name="runs_kind_target_check"
+        ),
+        CheckConstraint(
+            "(kind = 'inventory') = (detector = 'vision')", name="runs_kind_detector_check"
         ),
         Index("runs_tenant_created_idx", "tenant_id", "created_at"),
     )
@@ -255,14 +267,17 @@ class Run(Base):
     base_year_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("imagery_years.id"), nullable=False
     )
-    target_year_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("imagery_years.id"), nullable=False
+    target_year_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("imagery_years.id"), nullable=True
     )
+    kind: Mapped[str] = mapped_column(Text, nullable=False, default="change")
     status: Mapped[str] = mapped_column(Text, nullable=False, default="queued")
     threshold: Mapped[float] = mapped_column(Float, nullable=False)
     min_new_area_m2: Mapped[float] = mapped_column(Float, nullable=False)
     # Which detector scored the run (0005). A segmenter run also records the model it was
-    # given and its weights' sha256; the worker refuses weights with any other hash.
+    # given and its weights' sha256. The segmentation detector has since been removed; its
+    # value stays allowed so past runs keep their history, and no new run can use it. An
+    # inventory run's detector is `vision`, and `model_name` is the vision model.
     detector: Mapped[str] = mapped_column(Text, nullable=False)
     model_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     model_sha256: Mapped[str | None] = mapped_column(Text, nullable=True)

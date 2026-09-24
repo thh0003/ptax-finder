@@ -6,8 +6,10 @@ jobs, and the coverage report all need it.
 """
 
 import math
+from typing import cast
 
 import shapely
+from geoalchemy2.elements import WKBElement
 from geoalchemy2.shape import from_shape, to_shape
 from shapely.geometry.base import BaseGeometry
 from sqlalchemy import func, select
@@ -34,7 +36,7 @@ def footprint_for(db: Session, tenant: Tenant) -> shapely.MultiPolygon:
             raise NoParcelLayer("parcel layer has no parcels")
         layer.footprint = union
         db.commit()
-    geom = to_shape(layer.footprint)
+    geom = to_shape(cast(WKBElement, layer.footprint))
     if geom.geom_type == "Polygon":
         geom = shapely.MultiPolygon([geom])
     return geom

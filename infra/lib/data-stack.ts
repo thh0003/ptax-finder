@@ -1,5 +1,6 @@
 import * as cdk from "aws-cdk-lib";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
+import * as kms from "aws-cdk-lib/aws-kms";
 import * as rds from "aws-cdk-lib/aws-rds";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import { Construct } from "constructs";
@@ -13,6 +14,9 @@ export const DATABASE_NAME = "ptax";
 export class DataStack extends cdk.Stack {
   readonly cluster: rds.DatabaseCluster;
   readonly uploadsBucket: s3.Bucket;
+  /** Parcel improvement pipeline storage: per-tenant prefixes `tenants/<tenant_id>/`. */
+  readonly pipelineBucket: s3.Bucket;
+  readonly pipelineKey: kms.Key;
   /** Security group for anything that may reach the database (API, worker, one-off tasks). */
   readonly appSecurityGroup: ec2.SecurityGroup;
 
@@ -60,6 +64,23 @@ export class DataStack extends cdk.Stack {
           maxAge: 3600,
         },
       ],
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
+    // County imagery, parcels and results for the detection pipeline, encrypted with a
+    // customer-managed key. No CORS: nothing uploads to it from a browser.
+    this.pipelineKey = new kms.Key(this, "PipelineKey", {
+      description: "ptax parcel improvement pipeline data",
+      enableKeyRotation: true,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+    this.pipelineBucket = new s3.Bucket(this, "Pipeline", {
+      versioned: true,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      encryption: s3.BucketEncryption.KMS,
+      encryptionKey: this.pipelineKey,
+      bucketKeyEnabled: true,
+      enforceSSL: true,
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
   }

@@ -1,0 +1,28 @@
+{
+  "name": "Peoria County",
+  "state": "IL",
+  "parcels": {
+    "url": "https://services.arcgis.com/iPiPjILCMYxPZWTc/arcgis/rest/services/Tax_Parcels/FeatureServer/5",
+    "id_field": "PIN",
+    "fields": {
+      "PIN": "PIN",
+      "year_built": "year_built",
+      "eff_year_built": "eff_year_built",
+      "total_living_area": "total_living_area",
+      "gar_area": "gar_area",
+      "det_gar_area": "det_gar_area",
+      "PropClass": "PropClass"
+    }
+  },
+  "areas": {
+    "richwoods": {
+      "url": "https://gis.peoriacounty.gov/arcgis/rest/services/DP/Peoria_Reference/MapServer/2",
+      "where": "POL_TWP_NAME = 'RICHWOODS'"
+    }
+  },
+  "imagery": {
+    "2015": "https://gis.peoriacounty.gov/arcgis/rest/services/RL/Orthos2015/MapServer",
+    "2019": "https://gis.peoriacounty.gov/arcgis/rest/services/RL/Orthos2019/MapServer",
+    "2024": "https://gis.peoriacounty.gov/arcgis/rest/services/RL/Orthos2024/MapServer"
+  }
+}

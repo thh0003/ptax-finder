@@ -4,7 +4,6 @@ Both years arrive as ``ParcelRaster`` values on one common grid (see
 ``ptax.imagery.reader.read_parcel``). The classical detector is pure numpy: it derives
 per-pixel vegetation and built-up masks from colour, brightness and texture, cleans them
 morphologically, and measures new built-up area and vegetation loss inside the parcel.
-A learned detector is a later plan behind the same ``compare`` signature.
 """
 
 from dataclasses import dataclass

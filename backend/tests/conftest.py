@@ -308,29 +308,3 @@ def ingested_layer(
         tenant_with_admin["admin_headers"],
         PARCELS_GEOJSON.read_bytes(),
     )
-
-
-@pytest.fixture
-def published_segmenter(app, settings: Settings, tmp_path: Path) -> dict:
-    """A fake segmenter model published to MinIO under a unique name, selected for the app.
-
-    The bytes are not a real model: the API only reads the card, and run-job tests stub
-    the predictor. A unique name keeps tests from colliding with each other or with a
-    real `segmenter-v1` published to the shared dev bucket.
-    """
-    import hashlib
-    import json
-
-    from ptax.detection.model_store import publish
-
-    name = f"segmenter-test-{uuid.uuid4().hex[:10]}"
-    weights = f"fake weights {name}".encode()
-    (tmp_path / f"{name}.pt").write_bytes(weights)
-    sha = hashlib.sha256(weights).hexdigest()
-    card = tmp_path / f"{name}.json"
-    card.write_text(
-        json.dumps({"name": name, "weights": f"{name}.pt", "weights_sha256": sha, "cutoff": 0.5})
-    )
-    publish(settings, card)
-    app.state.settings = settings.model_copy(update={"segmenter_model": name})
-    return {"name": name, "sha256": sha, "settings": app.state.settings}

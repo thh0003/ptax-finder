@@ -338,3 +338,146 @@ def test_0005_reads_existing_runs_as_classical_and_new_runs_must_say(
             conn.execute(text("DELETE FROM parcel_layers WHERE tenant_id = :t"), {"t": tenant_id})
             conn.execute(text("DELETE FROM users WHERE tenant_id = :t"), {"t": tenant_id})
             conn.execute(text("DELETE FROM tenants WHERE id = :t"), {"t": tenant_id})
+
+
+def test_0006_accepts_arcgis_imagery_years(settings: Settings) -> None:
+    """0006 adds the `arcgis` imagery source; downgrading takes it away again."""
+    cfg = _alembic_config(settings)
+    engine = get_engine(settings.database_url)
+    insert_year = (
+        "INSERT INTO imagery_years (id, tenant_id, year, source, status, created_by)"
+        " VALUES (:id, :tenant, 2015, 'arcgis', 'queued', :user)"
+    )
+    with engine.begin() as conn:
+        tenant_id, _, user_id = _seed_parcel_row(conn, uuid.uuid4())
+    params = {"tenant": tenant_id, "user": user_id}
+    try:
+        command.upgrade(cfg, "0006")
+        with engine.begin() as conn:
+            year_id = uuid.uuid4()
+            conn.execute(text(insert_year), {**params, "id": year_id})
+            conn.execute(text("DELETE FROM imagery_years WHERE id = :id"), {"id": year_id})
+
+        command.downgrade(cfg, "0005")
+        with pytest.raises(IntegrityError), engine.begin() as conn:
+            conn.execute(text(insert_year), {**params, "id": uuid.uuid4()})
+    finally:
+        command.upgrade(cfg, "head")
+        with engine.begin() as conn:
+            conn.execute(text("DELETE FROM imagery_years WHERE tenant_id = :t"), {"t": tenant_id})
+            conn.execute(text("DELETE FROM parcels WHERE tenant_id = :t"), {"t": tenant_id})
+            conn.execute(text("DELETE FROM parcel_layers WHERE tenant_id = :t"), {"t": tenant_id})
+            conn.execute(text("DELETE FROM users WHERE tenant_id = :t"), {"t": tenant_id})
+            conn.execute(text("DELETE FROM tenants WHERE id = :t"), {"t": tenant_id})
+
+
+def test_0007_reads_existing_runs_as_changes_and_ties_inventories_to_one_year(
+    settings: Settings,
+) -> None:
+    """Every run before 0007 compared two years. After it, exactly an inventory run has no
+    target year, and exactly it uses the vision detector."""
+    cfg = _alembic_config(settings)
+    engine = get_engine(settings.database_url)
+    command.downgrade(cfg, "0006")
+    run_id = uuid.uuid4()
+    insert_run = (
+        "INSERT INTO runs (id, tenant_id, layer_id, base_year_id, target_year_id, status,"
+        " threshold, min_new_area_m2, parcels_total, created_by, detector{extra}) VALUES"
+        " (:id, :tenant, :layer, :base, {target}, 'succeeded', 0.3, 37.2, 1, :user,"
+        " {detector}{values})"
+    )
+    with engine.begin() as conn:
+        tenant_id, layer_id, user_id = _seed_parcel_row(conn, uuid.uuid4())
+        params = {
+            "tenant": tenant_id,
+            "layer": layer_id,
+            "base": _seed_year(conn, tenant_id, user_id, 2021),
+            "later": _seed_year(conn, tenant_id, user_id, 2023),
+            "user": user_id,
+        }
+        conn.execute(
+            text(insert_run.format(extra="", target=":later", detector="'classical'", values="")),
+            {**params, "id": run_id},
+        )
+
+    try:
+        command.upgrade(cfg, "0007")
+        with engine.connect() as conn:
+            kind = conn.execute(
+                text("SELECT kind FROM runs WHERE id = :id"), {"id": run_id}
+            ).scalar_one()
+        assert kind == "change"
+
+        rejected = [
+            ("", "NULL", "'classical'", ""),  # no kind: there is no default any more
+            (", kind", "NULL", "'classical'", ", 'change'"),  # a comparison needs a target
+            (", kind", ":later", "'vision'", ", 'inventory'"),  # an inventory has no target
+            (", kind", "NULL", "'classical'", ", 'inventory'"),  # an inventory uses vision
+            (", kind", ":later", "'vision'", ", 'change'"),  # vision scores inventories only
+        ]
+        for extra, target, detector, values in rejected:
+            with pytest.raises(IntegrityError), engine.begin() as conn:
+                conn.execute(
+                    text(
+                        insert_run.format(
+                            extra=extra, target=target, detector=detector, values=values
+                        )
+                    ),
+                    {**params, "id": uuid.uuid4()},
+                )
+        inventory_id = uuid.uuid4()
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    insert_run.format(
+                        extra=", kind, model_name",
+                        target="NULL",
+                        detector="'vision'",
+                        values=", 'inventory', 'qwen3-vl'",
+                    )
+                ),
+                {**params, "id": inventory_id},
+            )
+            conn.execute(text("DELETE FROM runs WHERE id = :id"), {"id": inventory_id})
+
+        command.downgrade(cfg, "0006")
+        assert "kind" not in {c["name"] for c in inspect(engine).get_columns("runs")}
+    finally:
+        command.upgrade(cfg, "head")
+        with engine.begin() as conn:
+            conn.execute(text("DELETE FROM runs WHERE tenant_id = :t"), {"t": tenant_id})
+            conn.execute(text("DELETE FROM imagery_years WHERE tenant_id = :t"), {"t": tenant_id})
+            conn.execute(text("DELETE FROM parcels WHERE tenant_id = :t"), {"t": tenant_id})
+            conn.execute(text("DELETE FROM parcel_layers WHERE tenant_id = :t"), {"t": tenant_id})
+            conn.execute(text("DELETE FROM users WHERE tenant_id = :t"), {"t": tenant_id})
+            conn.execute(text("DELETE FROM tenants WHERE id = :t"), {"t": tenant_id})
+
+
+def test_0008_creates_and_removes_the_tenant_isolated_pipeline_schema(settings: Settings) -> None:
+    cfg = _alembic_config(settings)
+    engine = get_engine(settings.database_url)
+    before = set(inspect(engine).get_table_names())
+    try:
+        command.downgrade(cfg, "0007")
+        assert "pipeline" not in inspect(engine).get_schema_names()
+        assert set(inspect(engine).get_table_names()) == before, "app tables untouched"
+
+        command.upgrade(cfg, "0008")
+        assert set(inspect(engine).get_table_names(schema="pipeline")) == {
+            "tenant_configs",
+            "runs",
+            "parcels",
+            "detections",
+            "detection_matches",
+            "parcel_changes",
+            "reviews",
+            "tile_qc",
+        }
+        with engine.connect() as conn:
+            policies = conn.execute(
+                text("SELECT count(*) FROM pg_policies WHERE schemaname = 'pipeline'")
+            ).scalar_one()
+        assert policies == 8
+        assert set(inspect(engine).get_table_names()) == before
+    finally:
+        command.upgrade(cfg, "head")

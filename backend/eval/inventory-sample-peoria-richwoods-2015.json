@@ -1,0 +1,1012 @@
+{
+  "tenant_fips": "17143",
+  "seed": 20260922,
+  "population": {
+    "detached_garage": 1323,
+    "attached_garage": 550,
+    "house_no_garage": 629,
+    "vacant": 595
+  },
+  "parcels": [
+    {
+      "n": 1,
+      "PIN": "1414358030",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 2,
+      "PIN": "1415451016",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 3,
+      "PIN": "1421255026",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 4,
+      "PIN": "1421256029",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 5,
+      "PIN": "1421278013",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 6,
+      "PIN": "1421278018",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 7,
+      "PIN": "1421278036",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 8,
+      "PIN": "1421279007",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 9,
+      "PIN": "1421281018",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 10,
+      "PIN": "1422153002",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 11,
+      "PIN": "1422157003",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 12,
+      "PIN": "1422161017",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 13,
+      "PIN": "1422181010",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 14,
+      "PIN": "1422255009",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 15,
+      "PIN": "1422351004",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 16,
+      "PIN": "1422352005",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 17,
+      "PIN": "1422352015",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 18,
+      "PIN": "1422353012",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 19,
+      "PIN": "1422356005",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 20,
+      "PIN": "1422356025",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 21,
+      "PIN": "1422357006",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 22,
+      "PIN": "1422358018",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 23,
+      "PIN": "1422380009",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 24,
+      "PIN": "1422380010",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 25,
+      "PIN": "1422402004",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 26,
+      "PIN": "1422403010",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 27,
+      "PIN": "1422406008",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 28,
+      "PIN": "1422406023",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 29,
+      "PIN": "1422408017",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 30,
+      "PIN": "1422428011",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 31,
+      "PIN": "1423126004",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 32,
+      "PIN": "1427101004",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 33,
+      "PIN": "1427101018",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 34,
+      "PIN": "1427102002",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 35,
+      "PIN": "1427128025",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 36,
+      "PIN": "1427128027",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 37,
+      "PIN": "1427131018",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 38,
+      "PIN": "1427131020",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 39,
+      "PIN": "1427133016",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 40,
+      "PIN": "1427152004",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 41,
+      "PIN": "1427152014",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 42,
+      "PIN": "1427154028",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 43,
+      "PIN": "1427155008",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 44,
+      "PIN": "1427176018",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 45,
+      "PIN": "1427179023",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 46,
+      "PIN": "1427182015",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 47,
+      "PIN": "1427183015",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 48,
+      "PIN": "1427304032",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 49,
+      "PIN": "1427305020",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 50,
+      "PIN": "1427330016",
+      "stratum": "detached_garage"
+    },
+    {
+      "n": 51,
+      "PIN": "1414356034",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 52,
+      "PIN": "1414358020",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 53,
+      "PIN": "1415300013",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 54,
+      "PIN": "1415428007",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 55,
+      "PIN": "1415477012",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 56,
+      "PIN": "1415477025",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 57,
+      "PIN": "1415477028",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 58,
+      "PIN": "1415477036",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 59,
+      "PIN": "1415477049",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 60,
+      "PIN": "1415477057",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 61,
+      "PIN": "1416477014",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 62,
+      "PIN": "1421202015",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 63,
+      "PIN": "1421226021",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 64,
+      "PIN": "1421257008",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 65,
+      "PIN": "1421276008",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 66,
+      "PIN": "1421277034",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 67,
+      "PIN": "1421277036",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 68,
+      "PIN": "1421279015",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 69,
+      "PIN": "1421280001",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 70,
+      "PIN": "1421426024",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 71,
+      "PIN": "1421455006",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 72,
+      "PIN": "1421477032",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 73,
+      "PIN": "1421479004",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 74,
+      "PIN": "1421479007",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 75,
+      "PIN": "1422105002",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 76,
+      "PIN": "1422105008",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 77,
+      "PIN": "1422152001",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 78,
+      "PIN": "1422153001",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 79,
+      "PIN": "1422176015",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 80,
+      "PIN": "1422251004",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 81,
+      "PIN": "1422252003",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 82,
+      "PIN": "1422302001",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 83,
+      "PIN": "1422327018",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 84,
+      "PIN": "1422354004",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 85,
+      "PIN": "1422357002",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 86,
+      "PIN": "1422407025",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 87,
+      "PIN": "1422408025",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 88,
+      "PIN": "1422428001",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 89,
+      "PIN": "1422456007",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 90,
+      "PIN": "1422477031",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 91,
+      "PIN": "1422480028",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 92,
+      "PIN": "1427102016",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 93,
+      "PIN": "1427102020",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 94,
+      "PIN": "1427103004",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 95,
+      "PIN": "1427153008",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 96,
+      "PIN": "1427153023",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 97,
+      "PIN": "1427181039",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 98,
+      "PIN": "1427304036",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 99,
+      "PIN": "1427329011",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 100,
+      "PIN": "1427329021",
+      "stratum": "attached_garage"
+    },
+    {
+      "n": 101,
+      "PIN": "1421226016",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 102,
+      "PIN": "1421255004",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 103,
+      "PIN": "1421257002",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 104,
+      "PIN": "1421258003",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 105,
+      "PIN": "1421258038",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 106,
+      "PIN": "1421277019",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 107,
+      "PIN": "1421277020",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 108,
+      "PIN": "1421277033",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 109,
+      "PIN": "1421279001",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 110,
+      "PIN": "1421281011",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 111,
+      "PIN": "1421455017",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 112,
+      "PIN": "1421455019",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 113,
+      "PIN": "1421476010",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 114,
+      "PIN": "1421478013",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 115,
+      "PIN": "1421478026",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 116,
+      "PIN": "1421480004",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 117,
+      "PIN": "1422151011",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 118,
+      "PIN": "1422154007",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 119,
+      "PIN": "1422177016",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 120,
+      "PIN": "1422177018",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 121,
+      "PIN": "1422182017",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 122,
+      "PIN": "1422251005",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 123,
+      "PIN": "1422351008",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 124,
+      "PIN": "1422351022",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 125,
+      "PIN": "1422354022",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 126,
+      "PIN": "1422355020",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 127,
+      "PIN": "1422356010",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 128,
+      "PIN": "1422357017",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 129,
+      "PIN": "1422358002",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 130,
+      "PIN": "1422358022",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 131,
+      "PIN": "1422379024",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 132,
+      "PIN": "1422401008",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 133,
+      "PIN": "1422403020",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 134,
+      "PIN": "1422403022",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 135,
+      "PIN": "1422429034",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 136,
+      "PIN": "1422476002",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 137,
+      "PIN": "1423151003",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 138,
+      "PIN": "1423151007",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 139,
+      "PIN": "1423330007",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 140,
+      "PIN": "1423330008",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 141,
+      "PIN": "1423452024",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 142,
+      "PIN": "1427104013",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 143,
+      "PIN": "1427128024",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 144,
+      "PIN": "1427131019",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 145,
+      "PIN": "1427133003",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 146,
+      "PIN": "1427152021",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 147,
+      "PIN": "1427179004",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 148,
+      "PIN": "1427180035",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 149,
+      "PIN": "1427303027",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 150,
+      "PIN": "1427304009",
+      "stratum": "house_no_garage"
+    },
+    {
+      "n": 151,
+      "PIN": "0931351012",
+      "stratum": "vacant"
+    },
+    {
+      "n": 152,
+      "PIN": "1406126015",
+      "stratum": "vacant"
+    },
+    {
+      "n": 153,
+      "PIN": "1406126017",
+      "stratum": "vacant"
+    },
+    {
+      "n": 154,
+      "PIN": "1406126019",
+      "stratum": "vacant"
+    },
+    {
+      "n": 155,
+      "PIN": "1406300011",
+      "stratum": "vacant"
+    },
+    {
+      "n": 156,
+      "PIN": "1414355007",
+      "stratum": "vacant"
+    },
+    {
+      "n": 157,
+      "PIN": "1414356015",
+      "stratum": "vacant"
+    },
+    {
+      "n": 158,
+      "PIN": "1415200015",
+      "stratum": "vacant"
+    },
+    {
+      "n": 159,
+      "PIN": "1415200017",
+      "stratum": "vacant"
+    },
+    {
+      "n": 160,
+      "PIN": "1415326007",
+      "stratum": "vacant"
+    },
+    {
+      "n": 161,
+      "PIN": "1415401002",
+      "stratum": "vacant"
+    },
+    {
+      "n": 162,
+      "PIN": "1415426001",
+      "stratum": "vacant"
+    },
+    {
+      "n": 163,
+      "PIN": "1415426003",
+      "stratum": "vacant"
+    },
+    {
+      "n": 164,
+      "PIN": "1415451009",
+      "stratum": "vacant"
+    },
+    {
+      "n": 165,
+      "PIN": "1421226012",
+      "stratum": "vacant"
+    },
+    {
+      "n": 166,
+      "PIN": "1421227023",
+      "stratum": "vacant"
+    },
+    {
+      "n": 167,
+      "PIN": "1421254010",
+      "stratum": "vacant"
+    },
+    {
+      "n": 168,
+      "PIN": "1421426006",
+      "stratum": "vacant"
+    },
+    {
+      "n": 169,
+      "PIN": "1421477029",
+      "stratum": "vacant"
+    },
+    {
+      "n": 170,
+      "PIN": "1421478005",
+      "stratum": "vacant"
+    },
+    {
+      "n": 171,
+      "PIN": "1421478027",
+      "stratum": "vacant"
+    },
+    {
+      "n": 172,
+      "PIN": "1421479024",
+      "stratum": "vacant"
+    },
+    {
+      "n": 173,
+      "PIN": "1422331009",
+      "stratum": "vacant"
+    },
+    {
+      "n": 174,
+      "PIN": "1422376002",
+      "stratum": "vacant"
+    },
+    {
+      "n": 175,
+      "PIN": "1422381007",
+      "stratum": "vacant"
+    },
+    {
+      "n": 176,
+      "PIN": "1422381018",
+      "stratum": "vacant"
+    },
+    {
+      "n": 177,
+      "PIN": "1422402003",
+      "stratum": "vacant"
+    },
+    {
+      "n": 178,
+      "PIN": "1422403005",
+      "stratum": "vacant"
+    },
+    {
+      "n": 179,
+      "PIN": "1422404006",
+      "stratum": "vacant"
+    },
+    {
+      "n": 180,
+      "PIN": "1422456003",
+      "stratum": "vacant"
+    },
+    {
+      "n": 181,
+      "PIN": "1422456004",
+      "stratum": "vacant"
+    },
+    {
+      "n": 182,
+      "PIN": "1422461016",
+      "stratum": "vacant"
+    },
+    {
+      "n": 183,
+      "PIN": "1423127009",
+      "stratum": "vacant"
+    },
+    {
+      "n": 184,
+      "PIN": "1423177001",
+      "stratum": "vacant"
+    },
+    {
+      "n": 185,
+      "PIN": "1423303003",
+      "stratum": "vacant"
+    },
+    {
+      "n": 186,
+      "PIN": "1423379009",
+      "stratum": "vacant"
+    },
+    {
+      "n": 187,
+      "PIN": "1423401003",
+      "stratum": "vacant"
+    },
+    {
+      "n": 188,
+      "PIN": "1427103001",
+      "stratum": "vacant"
+    },
+    {
+      "n": 189,
+      "PIN": "1427103021",
+      "stratum": "vacant"
+    },
+    {
+      "n": 190,
+      "PIN": "1427104035",
+      "stratum": "vacant"
+    },
+    {
+      "n": 191,
+      "PIN": "1427126002",
+      "stratum": "vacant"
+    },
+    {
+      "n": 192,
+      "PIN": "1427152001",
+      "stratum": "vacant"
+    },
+    {
+      "n": 193,
+      "PIN": "1427154041",
+      "stratum": "vacant"
+    },
+    {
+      "n": 194,
+      "PIN": "1427177023",
+      "stratum": "vacant"
+    },
+    {
+      "n": 195,
+      "PIN": "1427180021",
+      "stratum": "vacant"
+    },
+    {
+      "n": 196,
+      "PIN": "1427181037",
+      "stratum": "vacant"
+    },
+    {
+      "n": 197,
+      "PIN": "1427301010",
+      "stratum": "vacant"
+    },
+    {
+      "n": 198,
+      "PIN": "1427301021",
+      "stratum": "vacant"
+    },
+    {
+      "n": 199,
+      "PIN": "1427301022",
+      "stratum": "vacant"
+    },
+    {
+      "n": 200,
+      "PIN": "1427303013",
+      "stratum": "vacant"
+    }
+  ]
+}

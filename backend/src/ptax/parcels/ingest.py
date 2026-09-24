@@ -104,6 +104,12 @@ def inspect_layer(db: Session, job: Job) -> None:
             layer.source_crs = str(info["crs"]) if info["crs"] else None
             layer.feature_count = int(info["features"])
             layer.status = "awaiting_field"
+            # A county layer arrives with its id field already chosen: ingest it directly.
+            if layer.parcel_id_field is not None:
+                if layer.parcel_id_field not in {f["name"] for f in fields}:
+                    raise LayerError(f"field {layer.parcel_id_field!r} not found in layer")
+                layer.status = "ingesting"
+                enqueue(db, "parcel_layer.ingest", layer.tenant_id, {"layer_id": str(layer.id)})
             db.commit()
     except LayerError as exc:
         _fail_layer(db, layer, str(exc))

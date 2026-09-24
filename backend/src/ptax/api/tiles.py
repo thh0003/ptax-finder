@@ -38,7 +38,9 @@ def tile(
     if year.status != "ready":
         raise HTTPException(status.HTTP_404_NOT_FOUND, "imagery year is not ready")
     bounds = TMS.bounds(Tile(x, y, z))
-    assets = assets_intersecting(db, user.tenant_id, year.id, tuple(bounds))
+    assets = assets_intersecting(
+        db, user.tenant_id, year.id, (bounds.left, bounds.bottom, bounds.right, bounds.top)
+    )
     img = read_tile(request.app.state.settings, assets, z, x, y)
     if img is None:
         return Response(status_code=status.HTTP_204_NO_CONTENT)

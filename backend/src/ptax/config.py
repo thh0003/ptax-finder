@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     database_password: str = "ptax"
 
     s3_bucket: str = "ptax-uploads"
+    # Parcel improvement pipeline data, under per-tenant prefixes `tenants/<tenant_id>/`.
+    pipeline_bucket: str = "ptax-pipeline"
     # Set for MinIO locally; unset in AWS so boto3 talks to real S3 with the task role.
     s3_endpoint_url: str | None = "http://localhost:9000"
     s3_access_key_id: str | None = "minioadmin"
@@ -50,10 +52,11 @@ class Settings(BaseSettings):
     # The NAIP buckets are requester-pays in us-west-2 regardless of where we run.
     naip_aws_region: str = "us-west-2"
 
-    # The frozen segmenter model runs use, by name: `models/<name>.{pt,json}` in s3_bucket,
-    # published with `ptax-admin model-publish`. Changing model is a deploy, never a
-    # mutable pointer in the bucket, so every run records exactly what it was given.
-    segmenter_model: str = "segmenter-v1"
+    # The vision model structure inventories use: any OpenAI-compatible chat endpoint that
+    # accepts images. The key has no default and comes only from the environment.
+    vision_base_url: str = "http://pge-hermes-00:4000/v1"
+    vision_model: str = "qwen3-vl"
+    vision_api_key: str | None = None
 
     @field_validator(
         "s3_endpoint_url",

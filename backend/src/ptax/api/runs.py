@@ -1,8 +1,13 @@
-"""/api/runs: start, list, inspect and cancel base-vs-target comparison runs."""
+"""/api/runs: start, list, inspect and cancel runs.
+
+A run is a base-vs-target comparison (`change`) or a single-year structure `inventory`
+scored by the vision model (`POST /api/runs/inventory`).
+"""
 
 import uuid
+from collections.abc import Sequence
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from geoalchemy2.shape import to_shape
@@ -17,7 +22,6 @@ from ptax.auth.deps import CurrentUser, get_current_user, require_role
 from ptax.config import Settings
 from ptax.db.models import ImageryYear, Parcel, Run, RunParcel, Tenant, UserRole
 from ptax.db.session import get_db
-from ptax.detection.model_store import published_card
 from ptax.imagery.preview import (
     NEW_BUILTUP_RGB,
     STRUCTURE_RGB,
@@ -27,6 +31,7 @@ from ptax.imagery.preview import (
 )
 from ptax.imagery.reader import assets_intersecting, read_parcel
 from ptax.jobs.queue import enqueue
+from ptax.vision.inventory import KINDS as STRUCTURE_KINDS
 
 router = APIRouter(prefix="/runs")
 admin_only = require_role(UserRole.admin)
@@ -40,10 +45,16 @@ DEFAULT_THRESHOLD = 0.3
 # one-car garage or a small addition.
 DEFAULT_MIN_NEW_AREA_M2 = 37.2
 
-DetectorName = Literal["classical", "segmentation"]
-#: The segmenter passed its decision gate (backend/eval/README.md) and is the default.
-#: The classical detector stays selectable as the fallback and the comparison.
-DEFAULT_DETECTOR: DetectorName = "segmentation"
+#: The detectors a comparison run can be started with.
+DetectorName = Literal["classical"]
+DEFAULT_DETECTOR: DetectorName = "classical"
+RunKind = Literal["change", "inventory"]
+#: Every detector a stored run may carry; `vision` scores inventory runs only. The
+#: segmentation detector has been removed, but runs it scored keep their history.
+StoredDetector = Literal["classical", "segmentation", "vision"]
+StructureKind = Literal["house", "garage", "shed", "pool", "other"]
+# The query parameter enumerates the kinds the inventory stores; keep the two in step.
+assert get_args(StructureKind) == STRUCTURE_KINDS
 
 
 class RunYearOut(BaseModel):
@@ -55,13 +66,16 @@ class RunYearOut(BaseModel):
 
 class RunOut(BaseModel):
     id: uuid.UUID
+    kind: RunKind
     status: str
+    #: An inventory's one year.
     base_year: RunYearOut
-    target_year: RunYearOut
+    #: None for an inventory run.
+    target_year: RunYearOut | None
     threshold: float
     min_new_area_m2: float
-    detector: DetectorName
-    #: The segmenter model the run was given; None for a classical run.
+    detector: StoredDetector
+    #: The model the run was given (vision, or the removed segmenter); None for classical.
     model_name: str | None
     parcels_total: int
     parcels_processed: int
@@ -81,6 +95,10 @@ class RunIn(BaseModel):
     detector: DetectorName = DEFAULT_DETECTOR
 
 
+class InventoryIn(BaseModel):
+    year_id: uuid.UUID
+
+
 def _year_out(year: ImageryYear) -> RunYearOut:
     return RunYearOut(id=year.id, year=year.year, source=year.source, provider=year.provider)
 
@@ -88,9 +106,10 @@ def _year_out(year: ImageryYear) -> RunYearOut:
 def _out(run: Run, years: dict[uuid.UUID, ImageryYear]) -> RunOut:
     return RunOut(
         id=run.id,
+        kind=run.kind,  # type: ignore[arg-type]  # the CHECK constraint holds it
         status=run.status,
         base_year=_year_out(years[run.base_year_id]),
-        target_year=_year_out(years[run.target_year_id]),
+        target_year=_year_out(years[run.target_year_id]) if run.target_year_id else None,
         threshold=run.threshold,
         min_new_area_m2=run.min_new_area_m2,
         detector=run.detector,  # type: ignore[arg-type]  # the CHECK constraint holds it
@@ -106,8 +125,8 @@ def _out(run: Run, years: dict[uuid.UUID, ImageryYear]) -> RunOut:
     )
 
 
-def _years_for(db: Session, runs: list[Run]) -> dict[uuid.UUID, ImageryYear]:
-    ids = {r.base_year_id for r in runs} | {r.target_year_id for r in runs}
+def _years_for(db: Session, runs: Sequence[Run]) -> dict[uuid.UUID, ImageryYear]:
+    ids = {r.base_year_id for r in runs} | {r.target_year_id for r in runs if r.target_year_id}
     if not ids:
         return {}
     return {
@@ -143,7 +162,6 @@ class RunRefused(Exception):
 
 def queue_run(
     db: Session,
-    settings: Settings,
     *,
     tenant: Tenant,
     created_by: uuid.UUID,
@@ -154,27 +172,13 @@ def queue_run(
     min_new_area_m2: float = DEFAULT_MIN_NEW_AREA_M2,
 ) -> Run:
     """Create a run and its job, uncommitted. Shared by the API and `ptax-admin start-run`,
-    so the two cannot disagree about what a valid run is.
-
-    A segmenter run records the model named by ``settings.segmenter_model`` and its hash
-    now, from the published card: the worker later loads exactly that, or refuses. With
-    no published card the run is refused here rather than failing on the worker.
-    """
+    so the two cannot disagree about what a valid run is."""
     if target.year <= base.year:
         raise RunRefused(
             status.HTTP_422_UNPROCESSABLE_CONTENT, "Target year must be later than base year"
         )
     if tenant.current_parcel_layer_id is None:
         raise RunRefused(status.HTTP_409_CONFLICT, "no parcel layer")
-    model_name = model_sha256 = None
-    if detector == "segmentation":
-        card = published_card(settings, settings.segmenter_model)
-        if card is None:
-            raise RunRefused(
-                status.HTTP_409_CONFLICT,
-                f"segmenter model {settings.segmenter_model} is not published",
-            )
-        model_name, model_sha256 = settings.segmenter_model, str(card["weights_sha256"])
     total = db.execute(
         select(func.count())
         .select_from(Parcel)
@@ -189,8 +193,6 @@ def queue_run(
         threshold=threshold,
         min_new_area_m2=min_new_area_m2,
         detector=detector,
-        model_name=model_name,
-        model_sha256=model_sha256,
         parcels_total=total,
         created_by=created_by,
     )
@@ -198,6 +200,75 @@ def queue_run(
     db.flush()
     enqueue(db, "run.execute", tenant.id, {"run_id": str(run.id)})
     return run
+
+
+def queue_inventory(
+    db: Session,
+    settings: Settings,
+    *,
+    tenant: Tenant,
+    created_by: uuid.UUID,
+    year: ImageryYear,
+) -> Run:
+    """Create a structure-inventory run over ``year`` and its job, uncommitted.
+
+    Refused when no vision model key is configured: without one every parcel would fail
+    on the worker, so the operator is told now instead.
+    """
+    if not settings.vision_api_key:
+        raise RunRefused(
+            status.HTTP_409_CONFLICT, "vision model is not configured (VISION_API_KEY)"
+        )
+    if tenant.current_parcel_layer_id is None:
+        raise RunRefused(status.HTTP_409_CONFLICT, "no parcel layer")
+    total = db.execute(
+        select(func.count())
+        .select_from(Parcel)
+        .where(Parcel.layer_id == tenant.current_parcel_layer_id)
+    ).scalar_one()
+    run = Run(
+        tenant_id=tenant.id,
+        layer_id=tenant.current_parcel_layer_id,
+        kind="inventory",
+        base_year_id=year.id,
+        target_year_id=None,
+        status="queued",
+        # Change-detection settings; an inventory has no threshold or minimum area.
+        threshold=0.0,
+        min_new_area_m2=0.0,
+        detector="vision",
+        model_name=settings.vision_model,
+        parcels_total=total,
+        created_by=created_by,
+    )
+    db.add(run)
+    db.flush()
+    enqueue(db, "run.execute", tenant.id, {"run_id": str(run.id)})
+    return run
+
+
+@router.post("/inventory", response_model=RunOut, status_code=status.HTTP_201_CREATED)
+def create_inventory(
+    body: InventoryIn,
+    request: Request,
+    user: CurrentUser = Depends(admin_only),
+    db: Session = Depends(get_db),
+) -> RunOut:
+    """Queue a structure inventory of every current-layer parcel in one ready year."""
+    year = _ready_year(db, user, body.year_id, "imagery")
+    try:
+        run = queue_inventory(
+            db,
+            request.app.state.settings,
+            tenant=db.get_one(Tenant, user.tenant_id),
+            created_by=user.id,
+            year=year,
+        )
+    except RunRefused as exc:
+        raise HTTPException(exc.status_code, str(exc)) from exc
+    db.commit()
+    db.refresh(run)
+    return _out(run, {year.id: year})
 
 
 @router.post("", response_model=RunOut, status_code=status.HTTP_201_CREATED)
@@ -213,7 +284,6 @@ def create_run(
     try:
         run = queue_run(
             db,
-            request.app.state.settings,
             tenant=db.get_one(Tenant, user.tenant_id),
             created_by=user.id,
             base=base,
@@ -287,10 +357,15 @@ class RunParcelOut(BaseModel):
     #: detected nothing, was skipped, or was scored before the markup existed -- all
     #: three render no markup, and the viewer needs to tell that from "not loaded yet".
     has_markup: bool
+    #: An inventory parcel's one-line summary and the kinds found; None for a comparison.
+    summary: str | None = None
+    kinds: list[str] | None = None
 
 
 class RunParcelDetailOut(RunParcelOut):
     indicators: dict[str, Any] | None
+    #: The parcel's stored county fields (a county layer holds only its mapped fields).
+    parcel_attributes: dict[str, Any] | None
 
 
 def _parcel_out(row: RunParcel) -> RunParcelOut:
@@ -301,6 +376,8 @@ def _parcel_out(row: RunParcel) -> RunParcelOut:
         candidate=row.candidate,
         skipped_reason=row.skipped_reason,
         has_markup=row.new_builtup_geom is not None or row.structure_geom is not None,
+        summary=(row.indicators or {}).get("summary"),
+        kinds=(row.indicators or {}).get("kinds"),
     )
 
 
@@ -315,6 +392,9 @@ def list_run_parcels(
     limit: int = Query(50, ge=1, le=MAX_PARCEL_PAGE),
     offset: int = Query(0, ge=0),
     candidate: bool | None = Query(None, description="restrict to flagged parcels"),
+    structure: StructureKind | None = Query(
+        None, description="an inventory run's parcels where the model found this kind"
+    ),
     user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> RunParcelPage:
@@ -328,17 +408,21 @@ def list_run_parcels(
     where = [RunParcel.run_id == run.id]
     if candidate is not None:
         where.append(RunParcel.candidate.is_(candidate))
+    if structure is not None:
+        where.append(RunParcel.indicators.contains({"kinds": [structure]}))
 
-    total = db.execute(
-        select(func.count()).select_from(RunParcel).where(*where)
-    ).scalar_one()
-    rows = db.execute(
-        select(RunParcel)
-        .where(*where)
-        .order_by(RunParcel.score.desc().nullslast(), RunParcel.parcel_ref)
-        .limit(limit)
-        .offset(offset)
-    ).scalars().all()
+    total = db.execute(select(func.count()).select_from(RunParcel).where(*where)).scalar_one()
+    rows = (
+        db.execute(
+            select(RunParcel)
+            .where(*where)
+            .order_by(RunParcel.score.desc().nullslast(), RunParcel.parcel_ref)
+            .limit(limit)
+            .offset(offset)
+        )
+        .scalars()
+        .all()
+    )
     return RunParcelPage(items=[_parcel_out(r) for r in rows], total=total)
 
 
@@ -355,7 +439,12 @@ def get_run_parcel(
     row = db.get(RunParcel, (run.id, parcel_id))
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "parcel not in this run")
-    return RunParcelDetailOut(**_parcel_out(row).model_dump(), indicators=row.indicators)
+    parcel = db.get(Parcel, parcel_id)
+    return RunParcelDetailOut(
+        **_parcel_out(row).model_dump(),
+        indicators=row.indicators,
+        parcel_attributes=parcel.attributes if parcel is not None else None,
+    )
 
 
 # --- The marked-up target image ---------------------------------------------------------
@@ -382,7 +471,8 @@ def parcel_overlay(
     user: CurrentUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Response:
-    """The run's target year for one parcel, with the area it detected drawn on it.
+    """The run's target year for one parcel, with the area it detected drawn on it. For
+    an inventory run, its one year with the model's structures outlined.
 
     The markup comes from what the run *recorded* when it scored the parcel, never from
     re-running detection: a reassessment that gets challenged has to show the picture the
@@ -396,7 +486,7 @@ def parcel_overlay(
     if parcel is None or parcel.tenant_id != user.tenant_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "parcel not found")
 
-    year = db.get_one(ImageryYear, run.target_year_id)
+    year = db.get_one(ImageryYear, run.target_year_id or run.base_year_id)
     geom = to_shape(parcel.geom)
     view = plan_view(geom, size=size, buffer=buffer)
     assets = assets_intersecting(db, user.tenant_id, year.id, view.search_bbox)
@@ -419,7 +509,15 @@ def parcel_overlay(
         (row.structure_geom, STRUCTURE_RGB),
     ):
         if column is not None:
-            paint(rgb, raster, shapely_transform(to_utm, to_shape(column)), colour)
+            # An inventory's structures are outlined, so the roof under each stays visible.
+            paint(
+                rgb,
+                raster,
+                shapely_transform(to_utm, to_shape(column)),
+                colour,
+                width_px=OUTLINE_PX if run.kind == "inventory" else 1,
+                outline_only=run.kind == "inventory",
+            )
     if outline:
         paint(rgb, raster, view.geom_utm, OUTLINE_RGB, width_px=OUTLINE_PX, outline_only=True)
 

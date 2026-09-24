@@ -1,0 +1,39 @@
+{
+  "county_name": "Peoria County",
+  "state": "IL",
+  "portal_type": "agol",
+  "portal_url": "https://www.arcgis.com",
+  "secret_arn": "arn:aws:secretsmanager:us-east-1:000000000000:secret:ptax/tenants/REPLACE-WITH-TENANT-ID/arcgis",
+  "imagery": {
+    "2015": {
+      "source": "service",
+      "url_or_s3_uri": "https://gis.peoriacounty.gov/arcgis/rest/services/RL/Orthos2015/MapServer",
+      "year": 2015,
+      "capture_date": "2015-04-01",
+      "gsd_ft": 0.5,
+      "bands": ["red", "green", "blue"]
+    },
+    "2019": {
+      "source": "service",
+      "url_or_s3_uri": "https://gis.peoriacounty.gov/arcgis/rest/services/RL/Orthos2019/MapServer",
+      "year": 2019,
+      "capture_date": "2019-04-01",
+      "gsd_ft": 0.5,
+      "bands": ["red", "green", "blue"]
+    }
+  },
+  "parcels": {
+    "service_url": "https://services.arcgis.com/iPiPjILCMYxPZWTc/arcgis/rest/services/Tax_Parcels/FeatureServer/5",
+    "pin_field": "PIN",
+    "where_clause": "1=1"
+  },
+  "footprints": {
+    "service_url": "https://services.arcgis.com/iPiPjILCMYxPZWTc/arcgis/rest/services/Building_Outlines/FeatureServer/0"
+  },
+  "crs_epsg": 3436,
+  "publish": {
+    "folder": "ptax-improvements",
+    "detections_item": "ptax_detections",
+    "parcel_changes_item": "ptax_parcel_changes"
+  }
+}

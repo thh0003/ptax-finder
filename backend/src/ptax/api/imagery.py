@@ -2,8 +2,10 @@
 
 import uuid
 from datetime import datetime
+from typing import cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
+from geoalchemy2.elements import WKBElement
 from geoalchemy2.shape import to_shape
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
@@ -380,7 +382,8 @@ def year_thumbnail(
 ) -> Response:
     """A small rendering of the whole year, for the Imagery page."""
     year = _ready_year(db, user, year_id)
-    bounds = to_shape(year.bounds).bounds
+    # `_ready_year` guarantees bounds.
+    bounds = to_shape(cast(WKBElement, year.bounds)).bounds
     assets = assets_intersecting(db, user.tenant_id, year.id, bounds)
     img = read_bounds_preview(request.app.state.settings, assets, bounds)
     if img is None:

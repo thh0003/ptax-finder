@@ -1,5 +1,8 @@
 """``run.execute``: score every parcel of a run's layer, in resumable committed batches.
 
+A ``change`` run compares two years with a detector; an ``inventory`` run asks the vision
+model for the structures on each parcel in one year. Both share the batch loop below.
+
 Parcels are visited in geohash order so consecutive reads hit the same COG blocks. After
 every batch the rows are committed and the run's counters updated, then the run's status
 is re-read (an admin may have cancelled it) and ``stop_requested()`` is checked (a
@@ -7,27 +10,28 @@ graceful worker stop re-queues the job, which resumes by skipping parcels that a
 have ``run_parcels`` rows).
 """
 
-import json
 import logging
 import math
 import resource
 import sys
-import tempfile
 import time
 import uuid
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
-from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
+import shapely
+from geoalchemy2.elements import WKBElement
 from geoalchemy2.shape import from_shape, to_shape
-from shapely.geometry import box
+from pyproj import Transformer
+from shapely.geometry import MultiPolygon, Polygon, box
+from shapely.geometry.base import BaseGeometry
+from shapely.ops import transform as shapely_transform
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ptax.config import Settings, get_settings
 from ptax.db.models import ImageryAsset, ImageryYear, Job, Parcel, Run, RunParcel
-from ptax.detection import model_store
 from ptax.detection.detector import (
     ChangeResult,
     ClassicalDetector,
@@ -39,20 +43,28 @@ from ptax.detection.detector import (
     paired_samples,
 )
 from ptax.detection.geometry import mask_to_multipolygon
+from ptax.imagery.preview import plan_view
 from ptax.imagery.reader import read_parcel
-from ptax.jobs.queue import JobInterrupted
+from ptax.jobs.queue import MAX_ATTEMPTS, JobInterrupted, RetryableError
 from ptax.jobs.registry import job_handler
+from ptax.vision.client import VisionClient, VisionUnavailable
+from ptax.vision.inventory import BUFFER, IMAGE_PX, InventoryError, inventory_parcel
 from ptax.worker import stop_requested
 
 log = logging.getLogger("ptax.detection")
 
 BATCH_SIZE = 200
+#: An inventory parcel costs seconds of model time, not milliseconds: commit (and let a
+#: cancel or a worker stop land) every few parcels rather than every few minutes.
+INVENTORY_BATCH_SIZE = 10
+#: Waits before retrying a parcel when the vision model is unreachable. After the last,
+#: the job is re-queued (``RetryableError``) with the run still `running`.
+VISION_RETRY_DELAYS: tuple[float, ...] = (15, 60, 180)
 MIN_RESOLUTION_M = 0.5
 MAX_PIXELS = 4_000_000
 GEOHASH_PRECISION = 8
-#: Where the worker keeps fetched model weights. Keyed by name and hash inside it, so a
-#: worker that ran an older model never mistakes its file for the one a run recorded.
-MODEL_CACHE_DIR = Path(tempfile.gettempdir()) / "ptax-models"
+#: A ready asset and its bounds (EPSG:4326), for cheap per-parcel intersection tests.
+AssetBox = tuple[ImageryAsset, BaseGeometry]
 # Below this valid fraction a parcel counts as having no imagery at all: a sliver along
 # an asset edge (reprojected bounds overlap by a pixel or two) is not "partial coverage".
 NO_COVERAGE_VALID_FRAC = 0.05
@@ -62,7 +74,7 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
-def _ready_assets(db: Session, year_id: uuid.UUID) -> list[tuple[ImageryAsset, object]]:
+def _ready_assets(db: Session, year_id: uuid.UUID) -> list[AssetBox]:
     assets = (
         db.execute(
             select(ImageryAsset).where(
@@ -72,10 +84,10 @@ def _ready_assets(db: Session, year_id: uuid.UUID) -> list[tuple[ImageryAsset, o
         .scalars()
         .all()
     )
-    return [(a, box(*to_shape(a.bounds).bounds)) for a in assets]
+    return [(a, box(*to_shape(cast(WKBElement, a.bounds)).bounds)) for a in assets]
 
 
-def _intersecting(assets: list[tuple[ImageryAsset, object]], bounds: tuple) -> list[ImageryAsset]:
+def _intersecting(assets: list[AssetBox], bounds: tuple) -> list[ImageryAsset]:
     envelope = box(*bounds)
     return [a for a, b in assets if b.intersects(envelope)]
 
@@ -91,8 +103,8 @@ def score_parcel(
     parcel: Parcel,
     base: ImageryYear,
     target: ImageryYear,
-    base_assets: list[tuple[ImageryAsset, object]],
-    target_assets: list[tuple[ImageryAsset, object]],
+    base_assets: list[AssetBox],
+    target_assets: list[AssetBox],
     detector: Detector,
     fit: RadiometricFit | None = None,
 ) -> RunParcel:
@@ -142,6 +154,81 @@ def score_parcel(
     return row
 
 
+def vision_client(settings: Settings) -> VisionClient:
+    return VisionClient.from_settings(settings)
+
+
+def _as_multipolygon(geometry: object) -> MultiPolygon | None:
+    polygons = [
+        g
+        for g in getattr(geometry, "geoms", [geometry])
+        if isinstance(g, Polygon) and not g.is_empty
+    ]
+    return MultiPolygon(polygons) if polygons else None
+
+
+def inventory_row(
+    run: Run,
+    parcel: Parcel,
+    assets: list[AssetBox],
+    client: VisionClient,
+) -> RunParcel:
+    """One parcel's structure inventory: what the model sees on the run's one year.
+
+    A reply the model cannot get right is recorded as ``model_error`` with the raw text,
+    never guessed at. An unreachable model is waited out briefly, then raised as
+    ``RetryableError``: an outage says nothing about the parcel.
+    """
+    settings = get_settings()
+    geom = to_shape(parcel.geom)
+    row = RunParcel(run_id=run.id, parcel_id=parcel.id, parcel_ref=parcel.parcel_ref)
+    view = plan_view(geom, size=IMAGE_PX, buffer=BUFFER)
+    raster = read_parcel(
+        settings,
+        _intersecting(assets, view.search_bbox),
+        geom,
+        resolution_m=view.resolution_m,
+        buffer_m=view.buffer_m,
+    )
+    if raster is None or not raster.mask[raster.parcel_mask].any():
+        row.skipped_reason = "no_coverage"
+        return row
+    for attempt, delay in enumerate((*VISION_RETRY_DELAYS, None)):
+        try:
+            result = inventory_parcel(client, raster, view.geom_utm)
+            break
+        except InventoryError as exc:
+            row.skipped_reason = "model_error"
+            row.indicators = {"model": run.model_name, "error": str(exc), "raw": exc.raw[:4000]}
+            return row
+        except VisionUnavailable as exc:
+            if delay is None:
+                raise RetryableError(f"vision model unavailable: {exc}") from exc
+            log.warning("run %s: vision model unavailable (%s); retry %d", run.id, exc, attempt + 1)
+            time.sleep(delay)
+
+    row.score = max((s.confidence for s in result.structures), default=0.0)
+    row.candidate = False
+    row.indicators = {
+        "structures": [
+            {"kind": s.kind, "confidence": s.confidence, "box": list(s.box)}
+            for s in result.structures
+        ],
+        "summary": result.summary,
+        "kinds": result.kinds,
+        "counts": result.counts,
+        "model": run.model_name,
+        "resolution_m": round(view.resolution_m, 4),
+    }
+    if result.structures:
+        to_4326 = Transformer.from_crs(view.utm, 4326, always_xy=True).transform
+        union = shapely.union_all([s.polygon for s in result.structures])
+        markup = _as_multipolygon(shapely_transform(to_4326, union))
+        if markup is not None:
+            row.structure_geom = from_shape(markup, srid=4326)
+    return row
+
+
 def _record_detected_area(row: RunParcel, result: ChangeResult, raster: ParcelRaster) -> None:
     """Store where the run found the change, on the grid it scored.
 
@@ -171,8 +258,8 @@ def _fit_for_run(
     run: Run,
     base: ImageryYear,
     target: ImageryYear,
-    base_assets: list[tuple[ImageryAsset, object]],
-    target_assets: list[tuple[ImageryAsset, object]],
+    base_assets: list[AssetBox],
+    target_assets: list[AssetBox],
     ordered_ids: Sequence[uuid.UUID],
 ) -> RadiometricFit | None:
     """One capture-to-capture correction for the whole run, fitted before scoring starts.
@@ -226,28 +313,16 @@ def _fit_for_run(
     return fit_radiometry(base_samples, target_samples)
 
 
-def _detector_for(settings: Settings, run: Run) -> Detector:
-    """The detector this run recorded, built once before any parcel is scored.
+def _detector_for(run: Run) -> Detector:
+    """The detector a comparison run recorded, built once before any parcel is scored.
 
-    A segmenter run gets exactly the weights whose sha256 it recorded at creation, or
-    fails here: a mismatch raises before the batch loop, so the run ends `failed` with no
-    parcel scored by a model nobody froze. The torch model is imported only on this path.
+    Only the classical detector remains. A run recorded with the removed segmentation
+    detector (still queued from before its removal) fails here, before any parcel is
+    scored, rather than being silently scored by a different detector than it records.
     """
     if run.detector == "classical":
         return ClassicalDetector()
-    if run.detector != "segmentation" or not run.model_name or not run.model_sha256:
-        raise ValueError(f"run {run.id} has no usable detector ({run.detector})")
-    from ptax.detection import learned
-
-    weights = model_store.fetch_weights(settings, run.model_name, run.model_sha256, MODEL_CACHE_DIR)
-    card = model_store.published_card(settings, run.model_name)
-    if card is None:
-        raise model_store.ModelMismatch(f"model {run.model_name} is no longer published")
-    # A local card beside the fetched weights, so `from_model_card` re-checks the hash
-    # against what the card froze as well as against what the run recorded.
-    local_card = MODEL_CACHE_DIR / f"{run.model_name}-{run.model_sha256[:12]}.json"
-    local_card.write_text(json.dumps({**card, "weights": weights.name}))
-    return learned.from_model_card(local_card)
+    raise ValueError(f"run {run.id} records detector {run.detector!r}, which no longer exists")
 
 
 def _peak_rss_mb() -> float:
@@ -295,13 +370,7 @@ def execute_run(db: Session, job: Job) -> None:
     done = _restore_counters(db, run)
     db.commit()
     try:
-        base = db.get_one(ImageryYear, run.base_year_id)
-        target = db.get_one(ImageryYear, run.target_year_id)
-        base_assets = _ready_assets(db, base.id)
-        target_assets = _ready_assets(db, target.id)
         settings = get_settings()
-        detector = _detector_for(settings, run)
-
         ordered_ids = (
             db.execute(
                 select(Parcel.id)
@@ -313,10 +382,23 @@ def execute_run(db: Session, job: Job) -> None:
             .scalars()
             .all()
         )
-        # The segmenter normalises each chip itself and ignores the fit, so a segmenter run
-        # skips the 120-parcel pre-pass entirely.
-        fit = None
-        if run.detector == "classical":
+        score: Callable[[Parcel], RunParcel]
+        if run.kind == "inventory":
+            assets = _ready_assets(db, run.base_year_id)
+            client = vision_client(settings)
+
+            def score(parcel: Parcel) -> RunParcel:
+                return inventory_row(run, parcel, assets, client)
+
+            batch_size = INVENTORY_BATCH_SIZE
+        else:
+            if run.target_year_id is None:
+                raise ValueError(f"change run {run.id} has no target year")
+            base = db.get_one(ImageryYear, run.base_year_id)
+            target = db.get_one(ImageryYear, run.target_year_id)
+            base_assets = _ready_assets(db, base.id)
+            target_assets = _ready_assets(db, target.id)
+            detector = _detector_for(run)
             fit = _fit_for_run(db, run, base, target, base_assets, target_assets, ordered_ids)
             if fit is not None:
                 log.info(
@@ -328,20 +410,22 @@ def execute_run(db: Session, job: Job) -> None:
             else:
                 log.warning("run %s has no usable radiometric fit; scoring unnormalised", run.id)
 
+            def score(parcel: Parcel) -> RunParcel:
+                return score_parcel(
+                    run, parcel, base, target, base_assets, target_assets, detector, fit
+                )
+
+            batch_size = BATCH_SIZE
+
         todo = [pid for pid in ordered_ids if pid not in done]
         started = time.monotonic()
-        for start in range(0, len(todo), BATCH_SIZE):
-            batch_ids = todo[start : start + BATCH_SIZE]
+        for start in range(0, len(todo), batch_size):
+            batch_ids = todo[start : start + batch_size]
             parcels = {
                 p.id: p
                 for p in db.execute(select(Parcel).where(Parcel.id.in_(batch_ids))).scalars()
             }
-            rows = [
-                score_parcel(
-                    run, parcels[pid], base, target, base_assets, target_assets, detector, fit
-                )
-                for pid in batch_ids
-            ]
+            rows = [score(parcels[pid]) for pid in batch_ids]
             flush_batch(db, run, rows)
             db.refresh(run)
             if run.status == "cancelled":
@@ -371,6 +455,17 @@ def execute_run(db: Session, job: Job) -> None:
         )
     except JobInterrupted:
         db.rollback()
+        raise
+    except RetryableError as exc:
+        # Like an interruption, the run stays `running` and the re-queued job resumes from
+        # the committed batches -- unless this was the job's last attempt, when a run left
+        # `running` would never finish.
+        db.rollback()
+        if job.attempts >= MAX_ATTEMPTS:
+            run.status = "failed"
+            run.error = str(exc)[:2000]
+            run.finished_at = _now()
+            db.commit()
         raise
     except Exception as exc:
         db.rollback()

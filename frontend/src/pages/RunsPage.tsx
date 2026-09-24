@@ -7,17 +7,19 @@ import {
   DEFAULT_DETECTOR,
   DEFAULT_MIN_NEW_AREA_M2,
   DEFAULT_THRESHOLD,
-  DETECTOR_NAMES,
   RUN_ACTIVE,
+  STRUCTURE_KINDS,
   cancelRun,
+  createInventory,
   createRun,
   appendPage,
   detectorLabel,
   listRunParcels,
   listRuns,
-  type Detector,
+  runLabel,
   type Run,
   type RunParcel,
+  type StructureKind,
 } from "../api/runs";
 import { useAuth } from "../auth/AuthContext";
 import StatusChip from "../components/StatusChip";
@@ -30,38 +32,53 @@ const PARCEL_PAGE = 25;
 /**
  * A run's parcels, highest score first, as the way into the parcel viewer.
  *
- * Deliberately just a ranked list: statuses, filters and confirm/dismiss belong to the
- * review queue (Plan C), which will replace this entry point rather than extend it.
- * Shown only for a finished run — a running one has partial results, and ranking those
- * invites acting on a run that has not seen the rest of the county yet.
+ * Deliberately just a ranked list: statuses and confirm/dismiss belong to the review
+ * queue (Plan C), which will replace this entry point rather than extend it. A comparison
+ * is shown only once finished — a running one has partial results, and ranking those
+ * invites acting on a run that has not seen the rest of the county yet. An inventory
+ * decides nothing, so its parcels can be read while it runs, and filtered by kind.
  */
 function RunParcels({ run }: { run: Run }) {
   const [rows, setRows] = useState<RunParcel[] | null>(null);
   const [total, setTotal] = useState(0);
+  const [structure, setStructure] = useState<StructureKind | "">("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inventory = run.kind === "inventory";
 
-  const loadMore = useCallback(async () => {
-    setBusy(true);
-    try {
-      const page = await listRunParcels(run.id, {
-        limit: PARCEL_PAGE,
-        offset: rows?.length ?? 0,
-      });
-      setRows((current) => appendPage(current ?? [], page));
-      setTotal(page.total);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load parcels");
-    } finally {
-      setBusy(false);
-    }
-  }, [run.id, rows]);
+  const load = useCallback(
+    async (kind: StructureKind | "", current: RunParcel[]) => {
+      setBusy(true);
+      setError(null);
+      try {
+        const page = await listRunParcels(run.id, {
+          limit: PARCEL_PAGE,
+          offset: current.length,
+          ...(kind ? { structure: kind } : {}),
+        });
+        setRows(appendPage(current, page));
+        setTotal(page.total);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not load parcels");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [run.id],
+  );
+
+  const loadMore = () => void load(structure, rows ?? []);
+
+  function onFilter(kind: StructureKind | "") {
+    setStructure(kind);
+    void load(kind, []);
+  }
 
   if (rows === null) {
     return (
       <button
         type="button"
-        onClick={() => void loadMore()}
+        onClick={loadMore}
         disabled={busy}
         className="rounded border border-slate-300 px-3 py-1 text-sm hover:bg-slate-100"
         data-testid="show-parcels"
@@ -78,12 +95,40 @@ function RunParcels({ run }: { run: Run }) {
           {error}
         </p>
       )}
+      {inventory && (
+        <label className="flex w-fit items-center gap-2 text-sm">
+          <span className="text-slate-600">Structure</span>
+          <select
+            aria-label="Structure"
+            value={structure}
+            onChange={(e) => onFilter(e.target.value as StructureKind | "")}
+            className="rounded border border-slate-300 px-2 py-1"
+            data-testid="structure-filter"
+          >
+            <option value="">Any</option>
+            {STRUCTURE_KINDS.map((kind) => (
+              <option key={kind} value={kind}>
+                {kind}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <table className="w-full text-left text-sm">
         <thead className="text-xs text-slate-500">
           <tr>
             <th className="py-1 font-medium">Parcel</th>
-            <th className="py-1 font-medium">Score</th>
-            <th className="py-1 font-medium">Flagged</th>
+            {inventory ? (
+              <>
+                <th className="py-1 font-medium">Structures</th>
+                <th className="py-1 font-medium">Summary</th>
+              </>
+            ) : (
+              <>
+                <th className="py-1 font-medium">Score</th>
+                <th className="py-1 font-medium">Flagged</th>
+              </>
+            )}
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
@@ -98,10 +143,27 @@ function RunParcels({ run }: { run: Run }) {
                   {parcel.parcel_ref}
                 </Link>
               </td>
-              <td className="py-1 tabular-nums">
-                {parcel.score === null ? "not scored" : parcel.score.toFixed(3)}
-              </td>
-              <td className="py-1">{parcel.candidate ? "yes" : ""}</td>
+              {inventory ? (
+                <>
+                  <td className="py-1" data-testid="parcel-kinds">
+                    {parcel.skipped_reason
+                      ? `not read (${parcel.skipped_reason})`
+                      : parcel.kinds?.length
+                        ? parcel.kinds.join(", ")
+                        : "none"}
+                  </td>
+                  <td className="py-1 text-slate-600" data-testid="parcel-summary">
+                    {parcel.summary ?? ""}
+                  </td>
+                </>
+              ) : (
+                <>
+                  <td className="py-1 tabular-nums">
+                    {parcel.score === null ? "not scored" : parcel.score.toFixed(3)}
+                  </td>
+                  <td className="py-1">{parcel.candidate ? "yes" : ""}</td>
+                </>
+              )}
             </tr>
           ))}
         </tbody>
@@ -113,7 +175,7 @@ function RunParcels({ run }: { run: Run }) {
         {rows.length < total && (
           <button
             type="button"
-            onClick={() => void loadMore()}
+            onClick={loadMore}
             disabled={busy}
             className="rounded border border-slate-300 px-2 py-0.5 hover:bg-slate-100"
             data-testid="load-more-parcels"
@@ -134,12 +196,13 @@ export default function RunsPage() {
   const [years, setYears] = useState<ImageryYear[]>([]);
   const [baseId, setBaseId] = useState("");
   const [targetId, setTargetId] = useState("");
-  const [detector, setDetector] = useState<Detector>(DEFAULT_DETECTOR);
   const [threshold, setThreshold] = useState(String(DEFAULT_THRESHOLD));
   const [minArea, setMinArea] = useState(String(DEFAULT_MIN_NEW_AREA_M2));
   const [advanced, setAdvanced] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [inventoryYearId, setInventoryYearId] = useState("");
+  const [inventoryError, setInventoryError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const reload = useCallback(async () => {
@@ -174,14 +237,31 @@ export default function RunsPage() {
         target_year_id: targetId,
         threshold: Number(threshold),
         min_new_area_m2: Number(minArea),
-        detector,
+        detector: DEFAULT_DETECTOR,
       });
       await reload();
     } catch (err) {
       // 422s and 409s carry the exact reason (e.g. "Target year must be later than base
-      // year", or "segmenter model segmenter-v1 is not published").
+      // year").
       setFormError(
         err instanceof ApiError ? err.detail : err instanceof Error ? err.message : "Could not start run",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onStartInventory(event: SyntheticEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setInventoryError(null);
+    setBusy(true);
+    try {
+      await createInventory(inventoryYearId);
+      await reload();
+    } catch (err) {
+      // A 409 names what is missing, e.g. "vision model is not configured (VISION_API_KEY)".
+      setInventoryError(
+        err instanceof ApiError ? err.detail : err instanceof Error ? err.message : "Could not start inventory",
       );
     } finally {
       setBusy(false);
@@ -263,22 +343,6 @@ export default function RunsPage() {
                     ))}
                   </select>
                 </label>
-                <label className="text-sm">
-                  <span className="block text-slate-600">Detector</span>
-                  <select
-                    aria-label="Detector"
-                    value={detector}
-                    onChange={(e) => setDetector(e.target.value as Detector)}
-                    className="rounded border border-slate-300 px-3 py-2"
-                    data-testid="detector-select"
-                  >
-                    {(Object.keys(DETECTOR_NAMES) as Detector[]).map((d) => (
-                      <option key={d} value={d}>
-                        {DETECTOR_NAMES[d]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
                 <button
                   type="submit"
                   disabled={busy || !baseId || !targetId}
@@ -336,6 +400,56 @@ export default function RunsPage() {
         </section>
       )}
 
+      {isAdmin && (
+        <section aria-labelledby="inventory-heading" className="rounded-lg bg-white p-5 shadow">
+          <h2 id="inventory-heading" className="mb-1 text-sm font-medium text-slate-600">
+            Structure inventory
+          </h2>
+          <p className="mb-3 text-sm text-slate-600">
+            The vision model lists the structures on every parcel in one imagery year.
+          </p>
+          {years.length > 0 ? (
+            <form onSubmit={onStartInventory} className="space-y-3">
+              <div className="flex flex-wrap items-end gap-3">
+                <label className="text-sm">
+                  <span className="block text-slate-600">Imagery year</span>
+                  <select
+                    aria-label="Imagery year"
+                    value={inventoryYearId}
+                    onChange={(e) => setInventoryYearId(e.target.value)}
+                    className="rounded border border-slate-300 px-3 py-2"
+                    data-testid="inventory-year-select"
+                  >
+                    <option value="">Select a year...</option>
+                    {sorted.map((y) => (
+                      <option key={y.id} value={y.id}>
+                        {yearLabel(y)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="submit"
+                  disabled={busy || !inventoryYearId}
+                  className="rounded bg-blue-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                >
+                  Start inventory
+                </button>
+              </div>
+              {inventoryError && (
+                <p role="alert" className="text-sm text-red-800" data-testid="inventory-form-error">
+                  {inventoryError}
+                </p>
+              )}
+            </form>
+          ) : (
+            <p className="text-sm text-slate-700">
+              A parcel layer and a ready imagery year are needed to start an inventory.
+            </p>
+          )}
+        </section>
+      )}
+
       <section aria-labelledby="runs-heading">
         <h2 id="runs-heading" className="mb-2 text-sm font-medium text-slate-600">
           Runs
@@ -350,11 +464,13 @@ export default function RunsPage() {
               <li key={run.id} className="space-y-1 px-4 py-3 text-sm" data-testid="run-row">
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="font-medium" data-testid="run-label">
-                    {run.base_year.year} → {run.target_year.year}
+                    {runLabel(run)}
                   </span>
-                  <span className="text-slate-600" data-testid="run-detector">
-                    {detectorLabel(run)}
-                  </span>
+                  {run.kind === "change" && (
+                    <span className="text-slate-600" data-testid="run-detector">
+                      {detectorLabel(run)}
+                    </span>
+                  )}
                   <StatusChip status={run.status} testId="run-status" />
                   {RUN_ACTIVE.includes(run.status) && (
                     <span className="flex items-center gap-2" data-testid="run-progress">
@@ -364,9 +480,10 @@ export default function RunsPage() {
                   )}
                   {(run.status === "succeeded" || run.status === "cancelled") && (
                     <span className="text-slate-700" data-testid="run-summary">
-                      {run.parcels_processed} processed · {run.candidates}{" "}
-                      {run.candidates === 1 ? "candidate" : "candidates"} · {run.parcels_skipped}{" "}
-                      skipped
+                      {run.parcels_processed} processed
+                      {run.kind === "change" &&
+                        ` · ${run.candidates} ${run.candidates === 1 ? "candidate" : "candidates"}`}{" "}
+                      · {run.parcels_skipped} skipped
                     </span>
                   )}
                   {isAdmin && RUN_ACTIVE.includes(run.status) && (
@@ -382,16 +499,15 @@ export default function RunsPage() {
                 <p className="text-xs text-slate-500">
                   started {run.started_at ? new Date(run.started_at).toLocaleString() : "-"}
                   {run.finished_at && ` · finished ${new Date(run.finished_at).toLocaleString()}`}
-                  {` · threshold ${run.threshold} · min ${run.min_new_area_m2} m²`}
+                  {run.kind === "change" && ` · threshold ${run.threshold} · min ${run.min_new_area_m2} m²`}
                 </p>
                 {run.error && (
                   <p className="text-sm text-red-800" data-testid="run-error">
                     {run.error}
                   </p>
                 )}
-                {!RUN_ACTIVE.includes(run.status) && run.parcels_processed > 0 && (
-                  <RunParcels run={run} />
-                )}
+                {(run.kind === "inventory" || !RUN_ACTIVE.includes(run.status)) &&
+                  run.parcels_processed > 0 && <RunParcels run={run} />}
               </li>
             ))}
           </ul>

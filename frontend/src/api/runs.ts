@@ -4,17 +4,32 @@ export type RunStatus = "queued" | "running" | "succeeded" | "failed" | "cancell
 
 export type RunYear = { id: string; year: number; source: string; provider: string | null };
 
-export type Detector = "classical" | "segmentation";
+/** The detector a comparison run is started with (the only one). */
+export type Detector = "classical";
+/**
+ * Every detector a stored run may carry: `vision` scores structure inventories, and
+ * `segmentation` was a detector since removed, kept so past runs still display.
+ */
+export type StoredDetector = Detector | "segmentation" | "vision";
+
+/** A base-vs-target comparison, or a single-year structure inventory. */
+export type RunKind = "change" | "inventory";
+
+export const STRUCTURE_KINDS = ["house", "garage", "shed", "pool", "other"] as const;
+export type StructureKind = (typeof STRUCTURE_KINDS)[number];
 
 export type Run = {
   id: string;
+  kind: RunKind;
   status: RunStatus;
+  /** An inventory's one year. */
   base_year: RunYear;
-  target_year: RunYear;
+  /** Null for an inventory. */
+  target_year: RunYear | null;
   threshold: number;
   min_new_area_m2: number;
-  detector: Detector;
-  /** The segmenter model the run was given; null for a classical run. */
+  detector: StoredDetector;
+  /** The model the run was given (vision, or the removed segmenter); null for classical. */
   model_name: string | null;
   parcels_total: number;
   parcels_processed: number;
@@ -31,19 +46,26 @@ export const RUN_ACTIVE: RunStatus[] = ["queued", "running"];
 export const DEFAULT_THRESHOLD = 0.3;
 // Smallest contiguous new structure worth reporting: 400 sq ft.
 export const DEFAULT_MIN_NEW_AREA_M2 = 37.2;
-// The segmenter passed its decision gate (backend/eval/README.md) and is the default;
-// the classical detector stays selectable as the fallback.
-export const DEFAULT_DETECTOR: Detector = "segmentation";
+export const DEFAULT_DETECTOR: Detector = "classical";
 
-export const DETECTOR_NAMES: Record<Detector, string> = {
-  segmentation: "Segmenter",
+const STORED_DETECTOR_NAMES: Record<StoredDetector, string> = {
   classical: "Classical",
+  segmentation: "Segmenter (removed)",
+  vision: "Vision model",
 };
 
-/** "Segmenter · segmenter-v1" or "Classical": which detector, and exactly which model. */
+/** "Classical", or "Vision model · qwen3-vl": which detector, and exactly which model. */
 export function detectorLabel(run: Pick<Run, "detector" | "model_name">): string {
-  const name = DETECTOR_NAMES[run.detector];
+  const name = STORED_DETECTOR_NAMES[run.detector];
   return run.model_name ? `${name} · ${run.model_name}` : name;
+}
+
+/** "Inventory · 2015 · qwen3-vl" for an inventory; "2015 → 2019" for a comparison. */
+export function runLabel(run: Pick<Run, "kind" | "base_year" | "target_year" | "model_name">): string {
+  if (run.kind === "inventory" || run.target_year === null) {
+    return ["Inventory", String(run.base_year.year), run.model_name].filter(Boolean).join(" · ");
+  }
+  return `${run.base_year.year} → ${run.target_year.year}`;
 }
 
 export type Indicator = { key: string; label: string; unit: string; percent?: boolean };
@@ -53,22 +75,25 @@ export type Indicator = { key: string; label: string; unit: string; percent?: bo
  * records different ones -- the segmenter has no vegetation measure -- so a row it never
  * produces would only ever read "—".
  */
-const INDICATORS: Record<Detector, Indicator[]> = {
+const INDICATORS: Record<StoredDetector, Indicator[]> = {
   classical: [
     { key: "structure_m2", label: "Largest new structure", unit: "m²" },
     { key: "new_builtup_m2", label: "New built-up area", unit: "m²" },
     { key: "veg_loss_m2", label: "Vegetation loss", unit: "m²" },
     { key: "resolution_m", label: "Compared at", unit: "m/px" },
   ],
+  // Kept for runs scored before the segmenter was removed.
   segmentation: [
     { key: "structure_m2", label: "Largest new structure", unit: "m²" },
     { key: "new_builtup_m2", label: "New building area", unit: "m²" },
     { key: "base_building_frac", label: "Base-year building share", unit: "%", percent: true },
     { key: "resolution_m", label: "Compared at", unit: "m/px" },
   ],
+  // The structures themselves are listed separately (see `inventoryOf`).
+  vision: [{ key: "resolution_m", label: "Read at", unit: "m/px" }],
 };
 
-export function indicatorsFor(detector: Detector): Indicator[] {
+export function indicatorsFor(detector: StoredDetector): Indicator[] {
   return INDICATORS[detector];
 }
 
@@ -86,6 +111,13 @@ export function createRun(input: {
   return apiFetch<Run>("/api/runs", { method: "POST", body: JSON.stringify(input) });
 }
 
+export function createInventory(yearId: string): Promise<Run> {
+  return apiFetch<Run>("/api/runs/inventory", {
+    method: "POST",
+    body: JSON.stringify({ year_id: yearId }),
+  });
+}
+
 export function cancelRun(id: string): Promise<Run> {
   return apiFetch<Run>(`/api/runs/${id}/cancel`, { method: "POST" });
 }
@@ -100,12 +132,34 @@ export type RunParcel = {
   skipped_reason: string | null;
   /** Whether this run recorded where it found the change. False also for older runs. */
   has_markup: boolean;
+  /** An inventory parcel's one-line summary and the kinds found; null for a comparison. */
+  summary?: string | null;
+  kinds?: string[] | null;
 };
 
-// The segmenter's `model` indicator is a string; every other one is a number.
 export type RunParcelDetail = RunParcel & {
-  indicators: Record<string, number | string | null> | null;
+  /** Numbers for a comparison; an inventory also stores its structures and summary. */
+  indicators: Record<string, unknown> | null;
+  /** The parcel's stored county fields. */
+  parcel_attributes: Record<string, string | number | boolean | null> | null;
 };
+
+export type InventoryStructure = { kind: string; confidence: number };
+
+/** The structures and summary an inventory stored, keeping only well-formed entries. */
+export function inventoryOf(indicators: Record<string, unknown> | null): {
+  structures: InventoryStructure[];
+  summary: string | null;
+} {
+  const raw = Array.isArray(indicators?.structures) ? indicators.structures : [];
+  const structures = raw.flatMap((item: unknown) => {
+    if (typeof item !== "object" || item === null) return [];
+    const { kind, confidence } = item as Record<string, unknown>;
+    return typeof kind === "string" && typeof confidence === "number" ? [{ kind, confidence }] : [];
+  });
+  const summary = typeof indicators?.summary === "string" ? indicators.summary : null;
+  return { structures, summary };
+}
 
 export type RunParcelPage = { items: RunParcel[]; total: number };
 
@@ -133,26 +187,28 @@ export function parcelImageUrls(input: {
   runId: string;
   parcelId: string;
   baseYearId: string;
-  targetYearId: string;
-}): { base: string; target: string; overlay: string } {
+  /** Null for an inventory, whose overlay draws on its one (base) year. */
+  targetYearId: string | null;
+}): { base: string; target: string | null; overlay: string } {
   const query = viewQuery();
   const preview = (yearId: string) =>
     `/api/imagery/years/${yearId}/parcels/${input.parcelId}/preview.png?${query}`;
   return {
     base: preview(input.baseYearId),
-    target: preview(input.targetYearId),
+    target: input.targetYearId === null ? null : preview(input.targetYearId),
     overlay: `/api/runs/${input.runId}/parcels/${input.parcelId}/overlay.png?${query}`,
   };
 }
 
 export function listRunParcels(
   runId: string,
-  params: { limit?: number; offset?: number; candidate?: boolean } = {},
+  params: { limit?: number; offset?: number; candidate?: boolean; structure?: StructureKind } = {},
 ): Promise<RunParcelPage> {
   const query = new URLSearchParams();
   if (params.limit !== undefined) query.set("limit", String(params.limit));
   if (params.offset !== undefined) query.set("offset", String(params.offset));
   if (params.candidate !== undefined) query.set("candidate", String(params.candidate));
+  if (params.structure !== undefined) query.set("structure", params.structure);
   const suffix = query.toString();
   return apiFetch<RunParcelPage>(`/api/runs/${runId}/parcels${suffix ? `?${suffix}` : ""}`);
 }

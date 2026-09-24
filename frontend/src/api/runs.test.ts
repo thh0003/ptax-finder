@@ -8,14 +8,18 @@ vi.mock("./client", async (importOriginal) => ({
 import { apiFetch } from "./client";
 import {
   DEFAULT_DETECTOR,
+  createInventory,
   createRun,
   PARCEL_VIEW,
   appendPage,
   detectorLabel,
   indicatorsFor,
+  inventoryOf,
+  listRunParcels,
   parcelImageUrls,
+  runLabel,
 } from "./runs";
-import type { RunParcel, RunParcelPage } from "./runs";
+import type { Run, RunParcel, RunParcelPage } from "./runs";
 
 describe("parcel image URLs", () => {
   const urls = parcelImageUrls({
@@ -32,7 +36,7 @@ describe("parcel image URLs", () => {
    * nothing errors. One parameter object is what prevents that.
    */
   it("gives all three images identical size, buffer and outline", () => {
-    const query = [urls.base, urls.target, urls.overlay].map(
+    const query = [urls.base, urls.target!, urls.overlay].map(
       (u) => new URL(u, "http://x").searchParams,
     );
     for (const key of ["size", "buffer", "outline"] as const) {
@@ -45,7 +49,7 @@ describe("parcel image URLs", () => {
   it("draws the parcel boundary on every pane, not just the overlay", () => {
     // `parcel_preview` defaults `outline` to false; the PRD wants it on all three.
     expect(PARCEL_VIEW.outline).toBe(true);
-    for (const url of [urls.base, urls.target, urls.overlay]) {
+    for (const url of [urls.base, urls.target!, urls.overlay]) {
       expect(new URL(url, "http://x").searchParams.get("outline")).toBe("true");
     }
   });
@@ -92,13 +96,13 @@ describe("appending a page of a run's parcels", () => {
 });
 
 describe("the detector a run used", () => {
-  it("defaults new runs to the segmenter", () => {
-    expect(DEFAULT_DETECTOR).toBe("segmentation");
+  it("starts new comparison runs with the classical detector", () => {
+    expect(DEFAULT_DETECTOR).toBe("classical");
   });
 
-  it("names the segmenter together with the exact model it ran", () => {
+  it("still names runs scored by the removed segmenter, with the model they ran", () => {
     expect(detectorLabel({ detector: "segmentation", model_name: "segmenter-v1" })).toBe(
-      "Segmenter · segmenter-v1",
+      "Segmenter (removed) · segmenter-v1",
     );
     expect(detectorLabel({ detector: "classical", model_name: null })).toBe("Classical");
   });
@@ -125,5 +129,89 @@ describe("starting a run", () => {
       target_year_id: "t",
       detector: "classical",
     });
+  });
+});
+
+describe("structure inventories", () => {
+  const year = (y: number) => ({ id: `y${y}`, year: y, source: "arcgis", provider: null });
+  const run = (over: Partial<Run>): Run => ({
+    id: "r1",
+    kind: "change",
+    status: "running",
+    base_year: year(2015),
+    target_year: year(2019),
+    threshold: 0.3,
+    min_new_area_m2: 37.2,
+    detector: "segmentation",
+    model_name: "segmenter-v1",
+    parcels_total: 10,
+    parcels_processed: 0,
+    candidates: 0,
+    parcels_skipped: 0,
+    error: null,
+    created_at: "2026-09-23T00:00:00Z",
+    started_at: null,
+    finished_at: null,
+    ...over,
+  });
+
+  it("labels an inventory by its one year and model, and a comparison by its two years", () => {
+    const inventory = run({
+      kind: "inventory",
+      target_year: null,
+      detector: "vision",
+      model_name: "qwen3-vl",
+    });
+    expect(runLabel(inventory)).toBe("Inventory · 2015 · qwen3-vl");
+    expect(runLabel(run({}))).toBe("2015 → 2019");
+    expect(detectorLabel(inventory)).toBe("Vision model · qwen3-vl");
+  });
+
+  it("starts an inventory on one imagery year", async () => {
+    await createInventory("y2015");
+
+    const [path, init] = vi.mocked(apiFetch).mock.calls.at(-1)!;
+    expect(path).toBe("/api/runs/inventory");
+    expect((init as RequestInit).method).toBe("POST");
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({ year_id: "y2015" });
+  });
+
+  it("filters a run's parcels by structure kind", async () => {
+    await listRunParcels("r1", { limit: 25, structure: "garage" });
+
+    const [path] = vi.mocked(apiFetch).mock.calls.at(-1)!;
+    expect(new URL(path as string, "http://x").searchParams.get("structure")).toBe("garage");
+  });
+
+  it("gives an inventory parcel one image and its markup, with no target year", () => {
+    const urls = parcelImageUrls({
+      runId: "r1",
+      parcelId: "p1",
+      baseYearId: "y2015",
+      targetYearId: null,
+    });
+    expect(urls.base).toContain("/api/imagery/years/y2015/parcels/p1/preview.png");
+    expect(urls.target).toBeNull();
+    expect(urls.overlay).toContain("/api/runs/r1/parcels/p1/overlay.png");
+  });
+
+  it("reads the structures and summary a parcel's inventory stored, ignoring junk", () => {
+    const read = inventoryOf({
+      structures: [
+        { kind: "house", confidence: 0.9, box: [1, 2, 3, 4] },
+        { kind: 7, confidence: "high" },
+      ],
+      summary: "A house and a shed.",
+      counts: { house: 1 },
+    });
+    expect(read).toEqual({
+      structures: [{ kind: "house", confidence: 0.9 }],
+      summary: "A house and a shed.",
+    });
+    expect(inventoryOf(null)).toEqual({ structures: [], summary: null });
+  });
+
+  it("has only the one measurement an inventory records", () => {
+    expect(indicatorsFor("vision").map((i) => i.key)).toEqual(["resolution_m"]);
   });
 });

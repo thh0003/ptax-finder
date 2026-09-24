@@ -6,6 +6,7 @@ import * as ecs from "aws-cdk-lib/aws-ecs";
 import * as ecsPatterns from "aws-cdk-lib/aws-ecs-patterns";
 import * as ecrAssets from "aws-cdk-lib/aws-ecr-assets";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as kms from "aws-cdk-lib/aws-kms";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as rds from "aws-cdk-lib/aws-rds";
 import * as s3 from "aws-cdk-lib/aws-s3";
@@ -17,6 +18,8 @@ export interface ComputeStackProps extends cdk.StackProps {
   cluster: rds.DatabaseCluster;
   appSecurityGroup: ec2.ISecurityGroup;
   uploadsBucket: s3.IBucket;
+  pipelineBucket: s3.IBucket;
+  pipelineKey: kms.IKey;
   userPool: cognito.IUserPool;
   userPoolClient: cognito.IUserPoolClient;
   /** Docker build context; defaults to the repository root (backend/Dockerfile). */
@@ -31,20 +34,15 @@ export class ComputeStack extends cdk.Stack {
 
     const ecsCluster = new ecs.Cluster(this, "Cluster", { vpc: props.vpc });
 
-    // Two targets of one Dockerfile. `app` (API + SPA) carries no torch; `worker` adds the
-    // CPU-only ML stack for the segmentation detector. `worker` is the Dockerfile's last
-    // stage and so Docker's default target: the API asset must name `app` explicitly.
-    const imageAsset = (id: string, target: string) =>
-      ecs.ContainerImage.fromDockerImageAsset(
-        new ecrAssets.DockerImageAsset(this, id, {
-          directory: props.imageDirectory ?? `${__dirname}/../..`,
-          file: "backend/Dockerfile",
-          target,
-          platform: ecrAssets.Platform.LINUX_AMD64,
-        }),
-      );
-    const image = imageAsset("Image", "app");
-    const workerImage = imageAsset("WorkerImage", "worker");
+    // One image for both services: the API serves it, the worker overrides the command.
+    const image = ecs.ContainerImage.fromDockerImageAsset(
+      new ecrAssets.DockerImageAsset(this, "Image", {
+        directory: props.imageDirectory ?? `${__dirname}/../..`,
+        file: "backend/Dockerfile",
+        target: "app",
+        platform: ecrAssets.Platform.LINUX_AMD64,
+      }),
+    );
 
     const secret = props.cluster.secret!;
     const issuer = `https://cognito-idp.${this.region}.amazonaws.com/${props.userPool.userPoolId}`;
@@ -52,6 +50,7 @@ export class ComputeStack extends cdk.Stack {
       DATABASE_NAME,
       DATABASE_PORT: "5432",
       S3_BUCKET: props.uploadsBucket.bucketName,
+      PIPELINE_BUCKET: props.pipelineBucket.bucketName,
       AWS_REGION: this.region,
       COGNITO_USER_POOL_ID: props.userPool.userPoolId,
       COGNITO_CLIENT_ID: props.userPoolClient.userPoolClientId,
@@ -65,9 +64,6 @@ export class ComputeStack extends cdk.Stack {
       S3_ACCESS_KEY_ID: "",
       S3_SECRET_ACCESS_KEY: "",
       COGNITO_ENDPOINT_URL: "",
-      // The frozen segmenter model new runs record (the API) and load (the worker), by name
-      // in the uploads bucket. Moving to a new model is a deploy, never a bucket edit.
-      SEGMENTER_MODEL: "segmenter-v1",
     };
     // The Aurora secret has no URL field; Settings composes DATABASE_URL from these parts.
     const secrets = () => ({
@@ -80,6 +76,15 @@ export class ComputeStack extends cdk.Stack {
       assumedBy: new iam.ServicePrincipal("ecs-tasks.amazonaws.com"),
     });
     props.uploadsBucket.grantReadWrite(taskRole);
+    props.pipelineBucket.grantReadWrite(taskRole);
+    props.pipelineKey.grantEncryptDecrypt(taskRole);
+    // Each county's ArcGIS OAuth app credentials, named `ptax/tenants/<tenant_id>/arcgis`.
+    taskRole.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ["secretsmanager:GetSecretValue"],
+        resources: [`arn:aws:secretsmanager:${this.region}:${this.account}:secret:ptax/tenants/*`],
+      }),
+    );
     taskRole.addToPolicy(
       new iam.PolicyStatement({
         actions: [
@@ -152,7 +157,7 @@ export class ComputeStack extends cdk.Stack {
       taskRole,
     });
     workerTask.addContainer("worker", {
-      image: workerImage,
+      image,
       command: ["python", "-m", "ptax.worker"],
       environment,
       secrets: secrets(),

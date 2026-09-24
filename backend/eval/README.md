@@ -680,6 +680,10 @@ has to separate: bright, smooth, compact, recently disturbed ground versus a roo
 
 ## Learned detector — segmenter-v1 and the decision gate (2026-09-23)
 
+> **Removed 2026-09-24.** The segmenter, its training commands (`train-data`, `train`)
+> and the `ml` dependency group were removed from the codebase. This section is the historical
+> record of what was measured; the commands below no longer exist.
+
 Plan: `docs/plans/2026-09-23-learned-change-detector.md`. A U-Net (ImageNet ResNet-34
 encoder) segments buildings in each year; the change is building area present in the
 target and absent from the base (one pixel of tolerance for misregistration), scored with

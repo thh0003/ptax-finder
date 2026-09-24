@@ -112,9 +112,9 @@ def test_a_detector_aware_index_names_the_detector_and_a_blind_one_does_not(tmp_
     from ptax.eval.dataset import POSITIVE
 
     entry = ChipEntry("p1", POSITIVE, 0, 0, "a.png", score=0.5)
-    write_index(tmp_path / "aware.json", [entry], 2, detector="segmentation")
+    write_index(tmp_path / "aware.json", [entry], 2, detector="classical")
     write_index(tmp_path / "blind.json", [entry], 2)
 
-    assert json.loads((tmp_path / "aware.json").read_text())["detector"] == "segmentation"
+    assert json.loads((tmp_path / "aware.json").read_text())["detector"] == "classical"
     assert "detector" not in json.loads((tmp_path / "blind.json").read_text())
 

@@ -36,11 +36,7 @@ def years(client, db, settings, tenant_with_admin, ingested_layer) -> dict:
 
 
 def _start(client: TestClient, headers: dict, base: str, target: str, **extra):
-    """Start a run -- classical unless the test says otherwise.
-
-    These tests exercise the classical detector against the fixture imagery; the default
-    detector is the segmenter, which has its own tests below.
-    """
+    """Start a classical run (the only detector) unless the test says otherwise."""
     body = {"base_year_id": base, "target_year_id": target, "detector": "classical", **extra}
     return client.post("/api/runs", json=body, headers=headers)
 
@@ -621,138 +617,46 @@ def test_the_score_ordered_list_uses_an_index_rather_than_sorting_the_run(
 # --- The detector a run uses -------------------------------------------------------------
 
 
-def test_a_run_defaults_to_the_published_segmenter_and_records_its_hash(
-    client: TestClient, db: Session, tenant_with_admin, years, published_segmenter
+def test_a_run_defaults_to_the_classical_detector_and_carries_no_model(
+    client: TestClient, tenant_with_admin, years
 ) -> None:
+    headers = tenant_with_admin["admin_headers"]
     response = client.post(
         "/api/runs",
         json={"base_year_id": years[2021]["id"], "target_year_id": years[2023]["id"]},
-        headers=tenant_with_admin["admin_headers"],
+        headers=headers,
     )
 
     assert response.status_code == 201, response.text
-    body = response.json()
-    assert body["detector"] == "segmentation"
-    assert body["model_name"] == published_segmenter["name"]
-    run = db.get_one(Run, uuid.UUID(body["id"]))
-    assert run.model_sha256 == published_segmenter["sha256"]
+    assert (response.json()["detector"], response.json()["model_name"]) == ("classical", None)
+    # The segmentation detector was removed: asking for it is refused like any unknown name.
+    for gone in ("segmentation", "magic"):
+        refused = _start(client, headers, years[2021]["id"], years[2023]["id"], detector=gone)
+        assert refused.status_code == 422, gone
 
 
-def test_a_classical_run_carries_no_model(
+def test_a_run_recorded_with_the_removed_segmenter_fails_before_scoring(
     client: TestClient, db: Session, tenant_with_admin, years
 ) -> None:
+    """A segmenter run still queued from before the removal must not be quietly scored by
+    the classical detector while its row says otherwise."""
     headers = tenant_with_admin["admin_headers"]
-    response = _start(client, headers, years[2021]["id"], years[2023]["id"])
-
-    assert response.status_code == 201, response.text
-    assert response.json()["detector"] == "classical"
-    assert response.json()["model_name"] is None
-    unknown = _start(client, headers, years[2021]["id"], years[2023]["id"], detector="magic")
-    assert unknown.status_code == 422
-
-
-def test_a_segmenter_run_is_refused_when_the_model_is_not_published(
-    app, client: TestClient, db: Session, settings: Settings, tenant_with_admin, years
-) -> None:
-    absent = f"segmenter-absent-{uuid.uuid4().hex[:10]}"
-    app.state.settings = settings.model_copy(update={"segmenter_model": absent})
-    runs_before = db.execute(select(func.count()).select_from(Run)).scalar_one()
-    jobs_before = db.execute(select(func.count()).select_from(Job)).scalar_one()
-
-    response = client.post(
-        "/api/runs",
-        json={"base_year_id": years[2021]["id"], "target_year_id": years[2023]["id"]},
-        headers=tenant_with_admin["admin_headers"],
-    )
-
-    assert response.status_code == 409
-    assert f"segmenter model {absent} is not published" in response.text
-    assert db.execute(select(func.count()).select_from(Run)).scalar_one() == runs_before
-    assert db.execute(select(func.count()).select_from(Job)).scalar_one() == jobs_before
-
-
-def _bright_roofs(rgb):
-    """A stand-in model: 'building' wherever the pixel is bright. Deterministic, no torch."""
-    import numpy as np
-
-    return (rgb.astype(np.float32).mean(axis=0) > 130).astype(np.float32)
-
-
-@pytest.fixture
-def stub_segmenter(monkeypatch: pytest.MonkeyPatch) -> list:
-    """Replace the torch model load with `_bright_roofs`, recording what was loaded."""
-    from ptax.detection import learned
-
-    loaded: list = []
-    monkeypatch.setattr(
-        learned, "_load_predictor", lambda path: loaded.append(path) or _bright_roofs
-    )
-    return loaded
-
-
-def test_a_segmenter_run_scores_with_the_recorded_model(
-    client: TestClient,
-    db: Session,
-    tenant_with_admin,
-    years,
-    published_segmenter,
-    stub_segmenter,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    def no_fit(*args, **kwargs):
-        raise AssertionError("the segmenter ignores the radiometric fit; do not compute it")
-
-    monkeypatch.setattr(run_module, "_fit_for_run", no_fit)
-    headers = tenant_with_admin["admin_headers"]
-    created = client.post(
-        "/api/runs",
-        json={"base_year_id": years[2021]["id"], "target_year_id": years[2023]["id"]},
-        headers=headers,
-    ).json()
-
-    drain_queue(db)
-
-    run = _get(client, headers, created["id"])
-    assert run["status"] == "succeeded", run["error"]
-    assert run["parcels_processed"] == run["parcels_total"]
-    rows = (
-        db.execute(select(RunParcel).where(RunParcel.run_id == uuid.UUID(created["id"])))
-        .scalars()
-        .all()
-    )
-    scored = [r for r in rows if r.skipped_reason is None]
-    assert scored, "no parcel was scored"
-    assert {r.indicators["model"] for r in scored} == {published_segmenter["name"]}
-    assert any(r.structure_geom is not None for r in scored), "the stub found no structure"
-    assert len(stub_segmenter) == 1, "the model is loaded once per run, not per parcel"
-
-
-def test_weights_that_do_not_match_the_run_fail_it_before_any_parcel(
-    client: TestClient, db: Session, tenant_with_admin, years, published_segmenter, stub_segmenter
-) -> None:
-    headers = tenant_with_admin["admin_headers"]
-    created = client.post(
-        "/api/runs",
-        json={"base_year_id": years[2021]["id"], "target_year_id": years[2023]["id"]},
-        headers=headers,
-    ).json()
+    created = _start(client, headers, years[2021]["id"], years[2023]["id"]).json()
     run = db.get_one(Run, uuid.UUID(created["id"]))
-    # The CHECK constraint needs *a* hash; this is the wrong one.
-    run.model_sha256 = "0" * 64
+    run.detector, run.model_name, run.model_sha256 = "segmentation", "segmenter-v1", "0" * 64
     db.flush()
 
     drain_queue(db)
 
     run_out = _get(client, headers, created["id"])
     assert run_out["status"] == "failed"
-    assert "sha256" in run_out["error"]
+    assert "no longer exists" in run_out["error"]
     assert (
         db.execute(
             select(func.count()).select_from(RunParcel).where(RunParcel.run_id == run.id)
         ).scalar_one()
         == 0
     )
-    assert stub_segmenter == [], "mismatched weights must never be loaded"
 
 
 def test_the_operator_command_queues_a_run(
@@ -760,7 +664,6 @@ def test_the_operator_command_queues_a_run(
     settings: Settings,
     tenant_with_admin,
     years,
-    published_segmenter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from contextlib import nullcontext
@@ -769,7 +672,7 @@ def test_the_operator_command_queues_a_run(
 
     from ptax import cli
 
-    monkeypatch.setattr(cli, "_settings", lambda: published_segmenter["settings"])
+    monkeypatch.setattr(cli, "_settings", lambda: settings)
     monkeypatch.setattr(cli, "_session", lambda: nullcontext(db))
     tenant = tenant_with_admin["tenant"]
 
@@ -785,7 +688,7 @@ def test_the_operator_command_queues_a_run(
         .first()
     )
     assert run is not None and run.status == "queued"
-    assert (run.detector, run.model_name) == ("segmentation", published_segmenter["name"])
+    assert (run.detector, run.model_name) == ("classical", None)
     assert (
         db.execute(
             select(func.count()).select_from(Job).where(Job.payload["run_id"].astext == str(run.id))

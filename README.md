@@ -53,6 +53,13 @@ make test-backend   # pytest against the compose PostGIS
 make test-frontend  # vitest
 ```
 
+CI (`.github/workflows/ci.yml`) runs on every push and pull request, with three jobs:
+- **backend:** `ruff check`, `mypy` and `pytest`, against a PostGIS service and a MinIO container;
+- **frontend:** `tsc`, lint and vitest;
+- **infra:** the CDK assertion tests.
+
+`ruff format` is not enforced, because the repository predates it.
+
 Backend configuration is read from environment variables (or `backend/.env`); the
 defaults in `backend/src/ptax/config.py` match the compose stack. The SPA fetches the
 Cognito client id and region from `GET /api/config` at runtime, so one build works in
@@ -98,6 +105,45 @@ credentials, but ingesting a year reads the requester-pays `naip-analytic` bucke
 | `NAIP_MAX_INGEST_GB` | `60`                                         | Refuse NAIP ingests estimated above this   |
 | `NAIP_AWS_REGION`    | `us-west-2`                                  | Region of the NAIP buckets                 |
 
+### County ArcGIS data and structure inventories
+
+A county that publishes its parcels and orthophotos on ArcGIS is set up from a profile in
+`backend/counties/` (only Peoria's, `peoria-il.json`, exists so far). The profile names the
+parcel feature service, the parcel fields to keep, the named areas and the imagery tile
+cache for each year:
+
+```sh
+cd backend
+uv run ptax-admin create-tenant --name "Peoria County" --state IL --fips 17143
+uv run ptax-admin county-parcels counties/peoria-il.json --area richwoods --tenant-fips 17143
+uv run ptax-admin county-imagery counties/peoria-il.json --year 2015 --tenant-fips 17143
+```
+
+`county-parcels` fetches the area's parcels and keeps only the profile's mapped fields.
+Owner and address fields are never requested, so they are never stored. It then runs the
+fields through the normal parcel-layer ingest. `county-imagery` queues a job that copies
+the year's cached tiles covering the parcels into stored COGs, pausing briefly between
+tiles. Richwoods at 0.15 m is 16,674 tiles, or 140 blocks. An interrupted ingest resumes
+at the next unstored block.
+
+On the **Runs** page, **Structure inventory** starts a single-year run. The vision model
+lists the structures on each parcel (house, garage, shed, pool, other), with a box, a
+confidence and a one-line summary. The parcel list can be read while the run is going and
+filtered by kind. The viewer shows the year with the structures outlined, the model's
+list, and the county's record for the parcel. The model is any OpenAI-compatible chat
+endpoint that takes images. The worker needs the key, and the API refuses to start an
+inventory without it:
+
+| Variable          | Default                         | Meaning                                  |
+| ----------------- | ------------------------------- | ---------------------------------------- |
+| `VISION_BASE_URL` | `http://pge-hermes-00:4000/v1`  | OpenAI-compatible endpoint (`/v1` root)  |
+| `VISION_MODEL`    | `qwen3-vl`                      | Model name; recorded on each run         |
+| `VISION_API_KEY`  | none                            | Required; environment only, never commit |
+
+A structure inventory is measured against parcels labelled by eye with
+`ptax-eval inventory-sample`, `inventory-sheets` and `inventory-score`. See
+[`backend/eval/README.md`](backend/eval/README.md).
+
 ### Measuring detector accuracy
 
 Detector changes are judged on real imagery over real parcels, not on the synthetic
@@ -112,17 +158,73 @@ make eval-score      # precision / recall / flag rate, reweighted to the county 
 # judge the detector on what the imagery shows rather than on assessor build years
 uv run ptax-eval score eval/nw-hennepin-2010-2021.json \
   --labels eval/visual-labels-nw-hennepin-2010-2021.json
-
-# the learned detector (optional `ml` dependency group; production never installs it)
-uv sync --group ml
-uv run --group ml ptax-eval score eval/nw-hennepin-2010-2021.json \
-  --labels eval/visual-labels-nw-hennepin-2010-2021.json --detector segmentation
 ```
 
 Needs network but **no AWS credentials**. Every run also prints a no-imagery baseline that
 ranks parcels by size alone; a detector that does not beat it has not detected anything.
 See [`backend/eval/README.md`](backend/eval/README.md) for the labelled sets, the visual
 labels that replaced `BUILD_YR` as truth, and the measured ceiling.
+
+### Parcel improvement detection
+
+This compares Year A and Year B imagery per parcel and writes the result back to the county's
+ArcGIS portal. [The PRD](docs/prd/2026-09-24-parcel-improvement-detection.md) covers the
+whole design. The foundations and the reconciliation rules exist today. Detection,
+the pipeline and write-back come in later phases.
+
+**Tenant config.** Each tenant's pipeline configuration is stored as versioned JSON
+in `pipeline.tenant_configs`. It holds the portal, imagery per year, parcels, optional
+footprints and CAMA, CRS, classes, thresholds and the publish target.
+[`backend/tenants/peoria-il.example.json`](backend/tenants/peoria-il.example.json) is an
+example config:
+
+```sh
+cd backend
+uv run ptax-admin tenant-config set tenants/peoria-il.example.json --tenant-fips 17143
+uv run ptax-admin tenant-config show --tenant-fips 17143
+uv run ptax-admin tenant-config check --tenant-fips 17143   # exits 1 if a required item fails
+```
+
+The config names a Secrets Manager secret (`ptax/tenants/<tenant id>/arcgis`, holding
+`client_id` and `client_secret`); it never holds the credentials. `check` confirms that the
+secret resolves, that an ArcGIS token can be obtained, and that every source answers.
+Credentials never appear in its output. Pipeline files live in the KMS-encrypted
+`PIPELINE_BUCKET`, under a `tenants/<tenant id>/` prefix per tenant.
+
+**Tenant isolation.** The `pipeline` schema's tables all carry `tenant_id` and use
+row-level security. Tenant code reaches them only through
+`ptax.db.tenancy.tenant_scope(session, tenant_id)`. It switches to the `ptax_tenant` role
+and sets `app.tenant_id`, so a tenant reads and writes only its own rows. The role with no
+tenant set sees nothing.
+
+**Reconciliation rules** (`ptax.reconcile`, all areas in square feet in the tenant CRS):
+
+- A structure belongs to the parcel holding its centroid, and is kept whole, never clipped.
+- **Matching.** Year A and Year B outlines, each buffered by `match_tolerance_ft`, are
+  paired greedily one-to-one by IoU, and only where IoU ≥ `iou_match`. Class is ignored,
+  so a shed that grew into a garage still matches.
+- **Classifying a Year B detection:**
+  - `uncertain` if its score is below `min_score`, or it is occluded, or it is in a tile
+    flagged for misregistration;
+  - `new` if unmatched and at least `min_new_area_sqft`; smaller unmatched objects are not
+    reported;
+  - `expanded` if it grew by at least `expansion_min_sqft` *and* `expansion_min_pct`;
+  - otherwise `unchanged`.
+  - Unmatched Year A detections are `removed`.
+- **CAMA.** When CAMA is configured, a `new` or `expanded` detection is `already_assessed`
+  if an unused CAMA record for the parcel has the same class, was assessed in or after
+  Year A, and has an area within `cama_area_tolerance_pct` of the added area. Each record
+  suppresses one detection at most.
+- **Parcel status.** *Flagged* detections are `new` or `expanded` and not already assessed.
+  - `high_confidence`: a flagged detection exists, the change model covers at least
+    `change_agreement_frac` of what each flagged detection added, and every flagged
+    detection scores at least `high_confidence_score`.
+  - `needs_review`: anything flagged, change polygons covering `min_new_area_sqft` of the
+    parcel on their own, or an `uncertain` detection that would otherwise be new or
+    expanded.
+  - `no_change`: everything else.
+  - Without a change model, a flagged parcel is at best `needs_review`.
+  - `new_sqft_est` is the flagged new areas plus the flagged expansion deltas.
 
 ## Production image
 
@@ -224,27 +326,24 @@ Not exercised on the deployed stack: the viewer against a real signed-in session
 needs a Cognito password, which this workflow does not enter. The four E2E scenarios ran
 against a local stack carrying the same image content — see the plan's E2E Results.
 
-### The segmentation detector in AWS
+### Change detectors
 
-New runs use the learned segmentation detector by default; the classical detector stays
-selectable per run (Runs page → Detector, or `"detector": "classical"` on `POST /api/runs`).
-The worker service runs a second image target (`backend/Dockerfile` `worker`) carrying
-CPU-only torch; the API image carries none. The model itself is published to the uploads
-bucket once, from a machine that has the frozen weights, before any segmenter run can start:
+Comparison runs use the classical detector, the only one. The segmentation detector (a
+learned building segmenter, 2026-09-23) was **removed on 2026-09-24**. Its code, training
+harness, `ptax-admin model-publish`, the worker's torch image and `SEGMENTER_MODEL` are
+gone, and both services run the one `app` image. Runs it scored keep their history and
+display as "Segmenter (removed)". A run still recorded with it fails before scoring rather
+than being scored by a different detector. The deployed stack keeps running the segmenter
+until the next deploy; the published `models/segmenter-v1.*` objects in the uploads bucket
+are unused after that and can be deleted.
 
-```sh
-cd backend
-S3_BUCKET=<PtaxData uploads bucket> S3_ENDPOINT_URL= S3_ACCESS_KEY_ID= S3_SECRET_ACCESS_KEY= \
-  uv run ptax-admin model-publish eval/models/segmenter-v1.json
-```
-
-`SEGMENTER_MODEL` (set in `infra/lib/compute-stack.ts`) names the model new runs record;
-a published name is never overwritten, so moving to a retrained model is a new name plus a
-deploy. Without a published model, starting a segmenter run is refused with a 409. A run
-can also be started without the SPA, through the same `run-task` pattern as above:
+A run can also be started without the SPA, through the same `run-task` pattern as above:
 `["ptax-admin","start-run","--tenant-fips","27053","--base","2010","--target","2021"]`.
 
 ### Verified segmentation detector deployment
+
+Historical: the segmentation detector was removed from the code on 2026-09-24 (see Change
+detectors above).
 
 2026-09-23, `us-east-1`: `segmenter-v1` published to the uploads bucket (weights sha256
 `95e57ba6…a55b57`), then `cdk deploy --all`. `cdk diff` beforehand touched only
@@ -296,7 +395,8 @@ stratum holding those 14 is 92% of the county, the true base rate is three times
 alone; relabelling cut that baseline's average precision from 0.48 to 0.26, which is how
 much of it was an artefact of the assessor's records rather than of the ground.
 
-**A learned detector passes the decision gate** (2026-09-23). `segmenter-v1` — a U-Net
+**A learned detector passes the decision gate** (2026-09-23; the detector was removed on
+2026-09-24). `segmenter-v1` — a U-Net
 building segmenter trained on NAIP with open building footprints, from neighbourhoods at
 least 1 km from the evaluation area and frozen before its first score — ranks the same 300
 labelled parcels at **average precision 0.588 (95% CI 0.422–0.772)** against 0.224 for the

@@ -25,6 +25,8 @@ export function buildStacks(app: cdk.App, options: BuildOptions = {}) {
     cluster: data.cluster,
     appSecurityGroup: data.appSecurityGroup,
     uploadsBucket: data.uploadsBucket,
+    pipelineBucket: data.pipelineBucket,
+    pipelineKey: data.pipelineKey,
     userPool: auth.userPool,
     userPoolClient: auth.userPoolClient,
     imageDirectory: options.imageDirectory,
