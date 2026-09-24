@@ -36,9 +36,13 @@ def years(client, db, settings, tenant_with_admin, ingested_layer) -> dict:
 
 
 def _start(client: TestClient, headers: dict, base: str, target: str, **extra):
-    return client.post(
-        "/api/runs", json={"base_year_id": base, "target_year_id": target, **extra}, headers=headers
-    )
+    """Start a run -- classical unless the test says otherwise.
+
+    These tests exercise the classical detector against the fixture imagery; the default
+    detector is the segmenter, which has its own tests below.
+    """
+    body = {"base_year_id": base, "target_year_id": target, "detector": "classical", **extra}
+    return client.post("/api/runs", json=body, headers=headers)
 
 
 def _get(client: TestClient, headers: dict, run_id: str) -> dict:
@@ -79,9 +83,11 @@ def test_run_scores_every_parcel_and_summarises(
     assert _refs(db, run["id"], candidate=True) == {"000003", "000007", "000012"}
     # `.all()`, not the bare ScalarResult: it is a one-shot iterator, and the loop below
     # would otherwise exhaust it before the radiometric assertion could see any row.
-    rows = db.execute(
-        select(RunParcel).where(RunParcel.run_id == uuid.UUID(run["id"]))
-    ).scalars().all()
+    rows = (
+        db.execute(select(RunParcel).where(RunParcel.run_id == uuid.UUID(run["id"])))
+        .scalars()
+        .all()
+    )
     for row in rows:
         assert row.score is not None and row.skipped_reason is None
         assert "new_builtup_m2" in row.indicators
@@ -300,9 +306,9 @@ def test_a_scored_parcel_stores_the_area_the_run_detected(
 
     rows = {
         r.parcel_ref[-6:]: r
-        for r in db.execute(
-            select(RunParcel).where(RunParcel.run_id == uuid.UUID(run["id"]))
-        ).scalars().all()
+        for r in db.execute(select(RunParcel).where(RunParcel.run_id == uuid.UUID(run["id"])))
+        .scalars()
+        .all()
     }
 
     # 000003 is one of the three parcels that gained a planted roof.
@@ -325,11 +331,15 @@ def test_a_parcel_with_nothing_detected_stores_no_geometry(
     ).json()
     drain_queue(db)
 
-    quiet = db.execute(
-        select(RunParcel)
-        .where(RunParcel.run_id == uuid.UUID(run["id"]), RunParcel.candidate.is_(False))
-        .where(RunParcel.skipped_reason.is_(None))
-    ).scalars().all()
+    quiet = (
+        db.execute(
+            select(RunParcel)
+            .where(RunParcel.run_id == uuid.UUID(run["id"]), RunParcel.candidate.is_(False))
+            .where(RunParcel.skipped_reason.is_(None))
+        )
+        .scalars()
+        .all()
+    )
     assert quiet, "expected at least one scored, unflagged parcel"
     unmarked = [r for r in quiet if r.structure_geom is None]
     assert unmarked, "a parcel that detected nothing must store NULL geometry"
@@ -344,11 +354,15 @@ def test_a_skipped_parcel_stores_no_geometry(
     ).json()
     drain_queue(db)
 
-    skipped = db.execute(
-        select(RunParcel).where(
-            RunParcel.run_id == uuid.UUID(run["id"]), RunParcel.skipped_reason.is_not(None)
+    skipped = (
+        db.execute(
+            select(RunParcel).where(
+                RunParcel.run_id == uuid.UUID(run["id"]), RunParcel.skipped_reason.is_not(None)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     assert skipped
     for row in skipped:
         assert row.structure_geom is None and row.new_builtup_geom is None
@@ -455,16 +469,18 @@ def test_the_detail_carries_the_stored_result_and_whether_markup_exists(
     client: TestClient, db: Session, scored
 ) -> None:
     headers, run_id = scored["headers"], scored["run_id"]
-    flagged = db.execute(
-        select(RunParcel).where(
-            RunParcel.run_id == uuid.UUID(run_id), RunParcel.structure_geom.is_not(None)
+    flagged = (
+        db.execute(
+            select(RunParcel).where(
+                RunParcel.run_id == uuid.UUID(run_id), RunParcel.structure_geom.is_not(None)
+            )
         )
-    ).scalars().first()
+        .scalars()
+        .first()
+    )
     assert flagged is not None
 
-    body = client.get(
-        f"/api/runs/{run_id}/parcels/{flagged.parcel_id}", headers=headers
-    ).json()
+    body = client.get(f"/api/runs/{run_id}/parcels/{flagged.parcel_id}", headers=headers).json()
 
     assert body["score"] == pytest.approx(flagged.score)
     assert body["candidate"] is flagged.candidate
@@ -474,26 +490,29 @@ def test_the_detail_carries_the_stored_result_and_whether_markup_exists(
     assert body["has_markup"] is True
 
 
-def test_a_parcel_with_no_recorded_markup_says_so(
-    client: TestClient, db: Session, scored
-) -> None:
+def test_a_parcel_with_no_recorded_markup_says_so(client: TestClient, db: Session, scored) -> None:
     """The viewer needs this to render two panes rather than a silently-identical third."""
     headers, run_id = scored["headers"], scored["run_id"]
-    plain = db.execute(
-        select(RunParcel).where(
-            RunParcel.run_id == uuid.UUID(run_id),
-            RunParcel.structure_geom.is_(None),
-            RunParcel.new_builtup_geom.is_(None),
+    plain = (
+        db.execute(
+            select(RunParcel).where(
+                RunParcel.run_id == uuid.UUID(run_id),
+                RunParcel.structure_geom.is_(None),
+                RunParcel.new_builtup_geom.is_(None),
+            )
         )
-    ).scalars().first()
+        .scalars()
+        .first()
+    )
     assert plain is not None
 
     body = client.get(f"/api/runs/{run_id}/parcels/{plain.parcel_id}", headers=headers).json()
     assert body["has_markup"] is False
 
 
-def test_skipped_parcels_are_listed_and_readable(client: TestClient, db: Session, years,
-                                                 tenant_with_admin) -> None:
+def test_skipped_parcels_are_listed_and_readable(
+    client: TestClient, db: Session, years, tenant_with_admin
+) -> None:
     """A reviewer has to be able to open one and see why it was skipped."""
     headers = tenant_with_admin["admin_headers"]
     run = _start(
@@ -501,14 +520,16 @@ def test_skipped_parcels_are_listed_and_readable(client: TestClient, db: Session
     ).json()
     drain_queue(db)
 
-    skipped = db.execute(
-        select(RunParcel).where(
-            RunParcel.run_id == uuid.UUID(run["id"]), RunParcel.skipped_reason.is_not(None)
+    skipped = (
+        db.execute(
+            select(RunParcel).where(
+                RunParcel.run_id == uuid.UUID(run["id"]), RunParcel.skipped_reason.is_not(None)
+            )
         )
-    ).scalars().first()
-    body = client.get(
-        f"/api/runs/{run['id']}/parcels/{skipped.parcel_id}", headers=headers
-    ).json()
+        .scalars()
+        .first()
+    )
+    body = client.get(f"/api/runs/{run['id']}/parcels/{skipped.parcel_id}", headers=headers).json()
 
     assert body["skipped_reason"] == "no_coverage_target"
     assert body["score"] is None and body["has_markup"] is False
@@ -521,15 +542,16 @@ def test_the_parcel_routes_are_scoped_to_the_tenant_and_need_a_token(
     assert client.get(f"/api/runs/{run_id}/parcels").status_code == 401
     assert client.get(f"/api/runs/{uuid.uuid4()}/parcels", headers=headers).status_code == 404
     assert (
-        client.get(f"/api/runs/{run_id}/parcels/{uuid.uuid4()}", headers=headers).status_code
-        == 404
+        client.get(f"/api/runs/{run_id}/parcels/{uuid.uuid4()}", headers=headers).status_code == 404
     )
 
     # A real second tenant against a run that genuinely exists. Random UUIDs alone would
     # pass even if `_get_run`'s tenant check were dropped, leaving only "does it exist".
-    parcel_id = db.execute(
-        select(RunParcel.parcel_id).where(RunParcel.run_id == uuid.UUID(run_id))
-    ).scalars().first()
+    parcel_id = (
+        db.execute(select(RunParcel.parcel_id).where(RunParcel.run_id == uuid.UUID(run_id)))
+        .scalars()
+        .first()
+    )
     other_headers = {"Authorization": f"Bearer {make_token(_other_tenant_sub(db))}"}
     assert client.get(f"/api/runs/{run_id}/parcels", headers=other_headers).status_code == 404
     assert (
@@ -594,3 +616,192 @@ def test_the_score_ordered_list_uses_an_index_rather_than_sorting_the_run(
     without_index = plan()
     assert "Sort" in without_index, f"expected a sort without the index:\n{without_index}"
     db.rollback()
+
+
+# --- The detector a run uses -------------------------------------------------------------
+
+
+def test_a_run_defaults_to_the_published_segmenter_and_records_its_hash(
+    client: TestClient, db: Session, tenant_with_admin, years, published_segmenter
+) -> None:
+    response = client.post(
+        "/api/runs",
+        json={"base_year_id": years[2021]["id"], "target_year_id": years[2023]["id"]},
+        headers=tenant_with_admin["admin_headers"],
+    )
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["detector"] == "segmentation"
+    assert body["model_name"] == published_segmenter["name"]
+    run = db.get_one(Run, uuid.UUID(body["id"]))
+    assert run.model_sha256 == published_segmenter["sha256"]
+
+
+def test_a_classical_run_carries_no_model(
+    client: TestClient, db: Session, tenant_with_admin, years
+) -> None:
+    headers = tenant_with_admin["admin_headers"]
+    response = _start(client, headers, years[2021]["id"], years[2023]["id"])
+
+    assert response.status_code == 201, response.text
+    assert response.json()["detector"] == "classical"
+    assert response.json()["model_name"] is None
+    unknown = _start(client, headers, years[2021]["id"], years[2023]["id"], detector="magic")
+    assert unknown.status_code == 422
+
+
+def test_a_segmenter_run_is_refused_when_the_model_is_not_published(
+    app, client: TestClient, db: Session, settings: Settings, tenant_with_admin, years
+) -> None:
+    absent = f"segmenter-absent-{uuid.uuid4().hex[:10]}"
+    app.state.settings = settings.model_copy(update={"segmenter_model": absent})
+    runs_before = db.execute(select(func.count()).select_from(Run)).scalar_one()
+    jobs_before = db.execute(select(func.count()).select_from(Job)).scalar_one()
+
+    response = client.post(
+        "/api/runs",
+        json={"base_year_id": years[2021]["id"], "target_year_id": years[2023]["id"]},
+        headers=tenant_with_admin["admin_headers"],
+    )
+
+    assert response.status_code == 409
+    assert f"segmenter model {absent} is not published" in response.text
+    assert db.execute(select(func.count()).select_from(Run)).scalar_one() == runs_before
+    assert db.execute(select(func.count()).select_from(Job)).scalar_one() == jobs_before
+
+
+def _bright_roofs(rgb):
+    """A stand-in model: 'building' wherever the pixel is bright. Deterministic, no torch."""
+    import numpy as np
+
+    return (rgb.astype(np.float32).mean(axis=0) > 130).astype(np.float32)
+
+
+@pytest.fixture
+def stub_segmenter(monkeypatch: pytest.MonkeyPatch) -> list:
+    """Replace the torch model load with `_bright_roofs`, recording what was loaded."""
+    from ptax.detection import learned
+
+    loaded: list = []
+    monkeypatch.setattr(
+        learned, "_load_predictor", lambda path: loaded.append(path) or _bright_roofs
+    )
+    return loaded
+
+
+def test_a_segmenter_run_scores_with_the_recorded_model(
+    client: TestClient,
+    db: Session,
+    tenant_with_admin,
+    years,
+    published_segmenter,
+    stub_segmenter,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def no_fit(*args, **kwargs):
+        raise AssertionError("the segmenter ignores the radiometric fit; do not compute it")
+
+    monkeypatch.setattr(run_module, "_fit_for_run", no_fit)
+    headers = tenant_with_admin["admin_headers"]
+    created = client.post(
+        "/api/runs",
+        json={"base_year_id": years[2021]["id"], "target_year_id": years[2023]["id"]},
+        headers=headers,
+    ).json()
+
+    drain_queue(db)
+
+    run = _get(client, headers, created["id"])
+    assert run["status"] == "succeeded", run["error"]
+    assert run["parcels_processed"] == run["parcels_total"]
+    rows = (
+        db.execute(select(RunParcel).where(RunParcel.run_id == uuid.UUID(created["id"])))
+        .scalars()
+        .all()
+    )
+    scored = [r for r in rows if r.skipped_reason is None]
+    assert scored, "no parcel was scored"
+    assert {r.indicators["model"] for r in scored} == {published_segmenter["name"]}
+    assert any(r.structure_geom is not None for r in scored), "the stub found no structure"
+    assert len(stub_segmenter) == 1, "the model is loaded once per run, not per parcel"
+
+
+def test_weights_that_do_not_match_the_run_fail_it_before_any_parcel(
+    client: TestClient, db: Session, tenant_with_admin, years, published_segmenter, stub_segmenter
+) -> None:
+    headers = tenant_with_admin["admin_headers"]
+    created = client.post(
+        "/api/runs",
+        json={"base_year_id": years[2021]["id"], "target_year_id": years[2023]["id"]},
+        headers=headers,
+    ).json()
+    run = db.get_one(Run, uuid.UUID(created["id"]))
+    # The CHECK constraint needs *a* hash; this is the wrong one.
+    run.model_sha256 = "0" * 64
+    db.flush()
+
+    drain_queue(db)
+
+    run_out = _get(client, headers, created["id"])
+    assert run_out["status"] == "failed"
+    assert "sha256" in run_out["error"]
+    assert (
+        db.execute(
+            select(func.count()).select_from(RunParcel).where(RunParcel.run_id == run.id)
+        ).scalar_one()
+        == 0
+    )
+    assert stub_segmenter == [], "mismatched weights must never be loaded"
+
+
+def test_the_operator_command_queues_a_run(
+    db: Session,
+    settings: Settings,
+    tenant_with_admin,
+    years,
+    published_segmenter,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from contextlib import nullcontext
+
+    from typer.testing import CliRunner
+
+    from ptax import cli
+
+    monkeypatch.setattr(cli, "_settings", lambda: published_segmenter["settings"])
+    monkeypatch.setattr(cli, "_session", lambda: nullcontext(db))
+    tenant = tenant_with_admin["tenant"]
+
+    result = CliRunner().invoke(
+        cli.app,
+        ["start-run", "--tenant-fips", tenant.fips, "--base", "2021", "--target", "2023"],
+    )
+
+    assert result.exit_code == 0, result.output
+    run = (
+        db.execute(select(Run).where(Run.tenant_id == tenant.id).order_by(Run.created_at.desc()))
+        .scalars()
+        .first()
+    )
+    assert run is not None and run.status == "queued"
+    assert (run.detector, run.model_name) == ("segmentation", published_segmenter["name"])
+    assert (
+        db.execute(
+            select(func.count()).select_from(Job).where(Job.payload["run_id"].astext == str(run.id))
+        ).scalar_one()
+        == 1
+    )
+
+    refused = CliRunner().invoke(
+        cli.app,
+        ["start-run", "--tenant-fips", tenant.fips, "--base", "2023", "--target", "2021"],
+    )
+    assert refused.exit_code == 1
+    assert "later than base" in refused.output
+
+
+def test_peak_memory_is_reported_in_mebibytes_on_this_platform() -> None:
+    """`ru_maxrss` is KiB on Linux and bytes on macOS; a test process is tens to hundreds
+    of MiB, never hundreds of thousands."""
+    assert 10 < run_module._peak_rss_mb() < 16_384

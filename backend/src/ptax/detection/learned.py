@@ -19,7 +19,6 @@ a stub. `from_model_card` builds the real one, and only from weights whose hash 
 the frozen card.
 """
 
-import hashlib
 import json
 from collections.abc import Callable
 from pathlib import Path
@@ -35,6 +34,7 @@ from ptax.detection.detector import (
     _dilate,
     _largest_structure,
 )
+from ptax.detection.model_store import sha256_file
 
 Predict = Callable[[np.ndarray], np.ndarray]
 
@@ -130,14 +130,6 @@ def _load_predictor(weights: Path) -> Predict:
     return load(weights)
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
-
-
 def from_model_card(card_path: Path | None = None) -> SegmentationDetector:
     """The frozen candidate named by ``card_path``, refusing weights the card did not freeze.
 
@@ -148,7 +140,7 @@ def from_model_card(card_path: Path | None = None) -> SegmentationDetector:
     path = card_path or DEFAULT_CARD
     card = json.loads(path.read_text())
     weights = path.parent / card["weights"]
-    actual = _sha256(weights)
+    actual = sha256_file(weights)
     if actual != card["weights_sha256"]:
         raise ValueError(
             f"{weights} has sha256 {actual}, but {path} froze {card['weights_sha256']};"

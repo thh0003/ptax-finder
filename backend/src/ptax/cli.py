@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from ptax.auth.cognito import CognitoAdmin
 from ptax.config import Settings, get_settings
-from ptax.db.models import Tenant, User, UserRole
+from ptax.db.models import ImageryYear, Tenant, User, UserRole
 from ptax.db.session import get_engine
 
 app = typer.Typer(help="ptax-finder operator CLI", no_args_is_help=True)
@@ -216,3 +216,89 @@ def set_password(
     except ClientError as exc:
         _fail(f"cognito: {exc.response['Error']['Message']}")
     typer.echo(f"password set for {email} ({'permanent' if permanent else 'temporary'})")
+
+
+@app.command("model-publish")
+def model_publish(
+    card: Path = typer.Argument(..., help="frozen model card; its weights file sits beside it"),
+) -> None:
+    """Publish a frozen segmenter model to the uploads bucket for runs to use.
+
+    A published name is never overwritten with different weights: a retrained model is
+    published under a new name and selected with SEGMENTER_MODEL.
+    """
+    from ptax.detection.model_store import ModelMismatch, publish
+
+    try:
+        published = publish(_settings(), card)
+    except ModelMismatch as exc:
+        _fail(str(exc))
+    typer.echo(f"published {published['name']} (weights sha256 {published['weights_sha256']})")
+
+
+def _ready_year_numbered(db: Session, tenant: Tenant, year: int, source: str | None) -> ImageryYear:
+    query = select(ImageryYear).where(
+        ImageryYear.tenant_id == tenant.id,
+        ImageryYear.year == year,
+        ImageryYear.status == "ready",
+    )
+    if source is not None:
+        query = query.where(ImageryYear.source == source)
+    found = db.execute(query).scalars().all()
+    if not found:
+        where = f" from {source}" if source else ""
+        _fail(f"no ready imagery year {year}{where} for tenant {tenant.fips}")
+    if len(found) > 1:
+        _fail(f"several ready imagery years {year}; choose one with --source")
+    return found[0]
+
+
+@app.command("start-run")
+def start_run(
+    tenant_fips: str = typer.Option(..., help="FIPS of the tenant to run over"),
+    base: int = typer.Option(..., help="base imagery year"),
+    target: int = typer.Option(..., help="target imagery year"),
+    detector: str = typer.Option("segmentation", help="segmentation or classical"),
+    source: str | None = typer.Option(None, help="imagery source, when a year has several"),
+) -> None:
+    """Queue a comparison run without the SPA -- for operators and deployed-stack checks.
+
+    Goes through the same `queue_run` as the API, so it accepts and refuses exactly what
+    the Runs page would. The run is attributed to the tenant's first admin.
+    """
+    from ptax.api.runs import RunRefused, queue_run
+
+    if detector not in ("segmentation", "classical"):
+        _fail(f"unknown detector {detector!r}; use segmentation or classical")
+    with _session() as db:
+        tenant = db.execute(select(Tenant).where(Tenant.fips == tenant_fips)).scalar_one_or_none()
+        if tenant is None:
+            _fail(f"no tenant with fips {tenant_fips}")
+        admin = (
+            db.execute(
+                select(User)
+                .where(User.tenant_id == tenant.id, User.role == UserRole.admin)
+                .order_by(User.created_at)
+            )
+            .scalars()
+            .first()
+        )
+        if admin is None:
+            _fail(f"tenant {tenant_fips} has no admin to attribute the run to")
+        try:
+            run = queue_run(
+                db,
+                _settings(),
+                tenant=tenant,
+                created_by=admin.id,
+                base=_ready_year_numbered(db, tenant, base, source),
+                target=_ready_year_numbered(db, tenant, target, source),
+                detector=detector,  # type: ignore[arg-type]  # validated above
+            )
+        except RunRefused as exc:
+            _fail(str(exc))
+        db.commit()
+        typer.echo(
+            f"queued run {run.id}: {base} -> {target}, {run.detector}"
+            f"{f' ({run.model_name})' if run.model_name else ''}, {run.parcels_total} parcels"
+        )

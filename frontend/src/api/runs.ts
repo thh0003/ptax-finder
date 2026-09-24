@@ -4,6 +4,8 @@ export type RunStatus = "queued" | "running" | "succeeded" | "failed" | "cancell
 
 export type RunYear = { id: string; year: number; source: string; provider: string | null };
 
+export type Detector = "classical" | "segmentation";
+
 export type Run = {
   id: string;
   status: RunStatus;
@@ -11,6 +13,9 @@ export type Run = {
   target_year: RunYear;
   threshold: number;
   min_new_area_m2: number;
+  detector: Detector;
+  /** The segmenter model the run was given; null for a classical run. */
+  model_name: string | null;
   parcels_total: number;
   parcels_processed: number;
   candidates: number;
@@ -26,6 +31,46 @@ export const RUN_ACTIVE: RunStatus[] = ["queued", "running"];
 export const DEFAULT_THRESHOLD = 0.3;
 // Smallest contiguous new structure worth reporting: 400 sq ft.
 export const DEFAULT_MIN_NEW_AREA_M2 = 37.2;
+// The segmenter passed its decision gate (backend/eval/README.md) and is the default;
+// the classical detector stays selectable as the fallback.
+export const DEFAULT_DETECTOR: Detector = "segmentation";
+
+export const DETECTOR_NAMES: Record<Detector, string> = {
+  segmentation: "Segmenter",
+  classical: "Classical",
+};
+
+/** "Segmenter · segmenter-v1" or "Classical": which detector, and exactly which model. */
+export function detectorLabel(run: Pick<Run, "detector" | "model_name">): string {
+  const name = DETECTOR_NAMES[run.detector];
+  return run.model_name ? `${name} · ${run.model_name}` : name;
+}
+
+export type Indicator = { key: string; label: string; unit: string; percent?: boolean };
+
+/**
+ * The measurements behind a score, in the order a reviewer reads them. Each detector
+ * records different ones -- the segmenter has no vegetation measure -- so a row it never
+ * produces would only ever read "—".
+ */
+const INDICATORS: Record<Detector, Indicator[]> = {
+  classical: [
+    { key: "structure_m2", label: "Largest new structure", unit: "m²" },
+    { key: "new_builtup_m2", label: "New built-up area", unit: "m²" },
+    { key: "veg_loss_m2", label: "Vegetation loss", unit: "m²" },
+    { key: "resolution_m", label: "Compared at", unit: "m/px" },
+  ],
+  segmentation: [
+    { key: "structure_m2", label: "Largest new structure", unit: "m²" },
+    { key: "new_builtup_m2", label: "New building area", unit: "m²" },
+    { key: "base_building_frac", label: "Base-year building share", unit: "%", percent: true },
+    { key: "resolution_m", label: "Compared at", unit: "m/px" },
+  ],
+};
+
+export function indicatorsFor(detector: Detector): Indicator[] {
+  return INDICATORS[detector];
+}
 
 export function listRuns(): Promise<Run[]> {
   return apiFetch<Run[]>("/api/runs");
@@ -36,6 +81,7 @@ export function createRun(input: {
   target_year_id: string;
   threshold?: number;
   min_new_area_m2?: number;
+  detector?: Detector;
 }): Promise<Run> {
   return apiFetch<Run>("/api/runs", { method: "POST", body: JSON.stringify(input) });
 }
@@ -56,7 +102,10 @@ export type RunParcel = {
   has_markup: boolean;
 };
 
-export type RunParcelDetail = RunParcel & { indicators: Record<string, number | null> | null };
+// The segmenter's `model` indicator is a string; every other one is a number.
+export type RunParcelDetail = RunParcel & {
+  indicators: Record<string, number | string | null> | null;
+};
 
 export type RunParcelPage = { items: RunParcel[]; total: number };
 

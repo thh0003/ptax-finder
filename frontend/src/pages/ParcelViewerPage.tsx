@@ -3,8 +3,11 @@ import { Link, useParams } from "react-router-dom";
 
 import { listYears, yearLabel, type ImageryYear } from "../api/imagery";
 import {
+  detectorLabel,
   getRunParcel,
+  indicatorsFor,
   parcelImageUrls,
+  type Indicator,
   type Run,
   type RunParcelDetail,
 } from "../api/runs";
@@ -19,13 +22,11 @@ const SKIP_REASONS: Record<string, string> = {
   partial_coverage: "Imagery covers too little of this parcel to compare the two years.",
 };
 
-/** The measurements behind the score, in the order a reviewer reads them. */
-const INDICATORS: { key: string; label: string; unit: string }[] = [
-  { key: "structure_m2", label: "Largest new structure", unit: "m²" },
-  { key: "new_builtup_m2", label: "New built-up area", unit: "m²" },
-  { key: "veg_loss_m2", label: "Vegetation loss", unit: "m²" },
-  { key: "resolution_m", label: "Compared at", unit: "m/px" },
-];
+function formatIndicator(value: number | string | null | undefined, indicator: Indicator): string {
+  if (value === null || value === undefined) return "—";
+  if (indicator.percent && typeof value === "number") return `${(value * 100).toFixed(1)}%`;
+  return `${value} ${indicator.unit}`;
+}
 
 type Loaded = { url: string | null; error: string | null };
 
@@ -128,7 +129,8 @@ export default function ParcelViewerPage() {
         <div>
           <h1 className="text-xl font-semibold">Parcel {parcel.parcel_ref}</h1>
           <p className="text-sm text-slate-600">
-            {run.base_year.year} → {run.target_year.year}{" "}
+            {run.base_year.year} → {run.target_year.year} · Detected by{" "}
+            <span data-testid="detected-by">{detectorLabel(run)}</span>{" "}
             <Link to="/runs" className="underline">
               back to runs
             </Link>
@@ -191,17 +193,14 @@ export default function ParcelViewerPage() {
 
       {parcel.indicators ? (
         <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
-          {INDICATORS.map(({ key, label, unit }) => {
-            const value = parcel.indicators?.[key];
-            return (
-              <div key={key}>
-                <dt className="text-slate-600">{label}</dt>
-                <dd className="tabular-nums" data-testid={`indicator-${key}`}>
-                  {value === null || value === undefined ? "—" : `${value} ${unit}`}
-                </dd>
-              </div>
-            );
-          })}
+          {indicatorsFor(run.detector).map((indicator) => (
+            <div key={indicator.key}>
+              <dt className="text-slate-600">{indicator.label}</dt>
+              <dd className="tabular-nums" data-testid={`indicator-${indicator.key}`}>
+                {formatIndicator(parcel.indicators?.[indicator.key], indicator)}
+              </dd>
+            </div>
+          ))}
         </dl>
       ) : null}
     </section>

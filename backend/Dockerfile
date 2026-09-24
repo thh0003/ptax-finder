@@ -36,3 +36,11 @@ EXPOSE 8000
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
 # The worker service overrides this with: python -m ptax.worker
 CMD ["uvicorn", "ptax.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# Stage 3: the worker. The API image above carries no torch; the worker adds the `ml`
+# group (CPU-only torch on Linux, see pyproject's [tool.uv.sources]) so it can run the
+# segmentation detector. Being last, this is Docker's default target: every API build
+# names `--target app` explicitly (Makefile `image`, CDK's API image asset).
+FROM app AS worker
+RUN uv sync --frozen --no-dev --group ml
+CMD ["python", "-m", "ptax.worker"]

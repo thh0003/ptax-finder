@@ -1,6 +1,20 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { PARCEL_VIEW, appendPage, parcelImageUrls } from "./runs";
+vi.mock("./client", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./client")>()),
+  apiFetch: vi.fn().mockResolvedValue({}),
+}));
+
+import { apiFetch } from "./client";
+import {
+  DEFAULT_DETECTOR,
+  createRun,
+  PARCEL_VIEW,
+  appendPage,
+  detectorLabel,
+  indicatorsFor,
+  parcelImageUrls,
+} from "./runs";
 import type { RunParcel, RunParcelPage } from "./runs";
 
 describe("parcel image URLs", () => {
@@ -74,5 +88,42 @@ describe("appending a page of a run's parcels", () => {
     const current = [parcel("a")];
 
     expect(appendPage(current, page([], 1))).toEqual(current);
+  });
+});
+
+describe("the detector a run used", () => {
+  it("defaults new runs to the segmenter", () => {
+    expect(DEFAULT_DETECTOR).toBe("segmentation");
+  });
+
+  it("names the segmenter together with the exact model it ran", () => {
+    expect(detectorLabel({ detector: "segmentation", model_name: "segmenter-v1" })).toBe(
+      "Segmenter · segmenter-v1",
+    );
+    expect(detectorLabel({ detector: "classical", model_name: null })).toBe("Classical");
+  });
+
+  it("shows only the measurements the run's detector actually produces", () => {
+    const keys = (d: "classical" | "segmentation") => indicatorsFor(d).map((i) => i.key);
+
+    expect(keys("classical")).toContain("veg_loss_m2");
+    expect(keys("segmentation")).not.toContain("veg_loss_m2");
+    expect(keys("segmentation")).toEqual(
+      expect.arrayContaining(["structure_m2", "new_builtup_m2", "base_building_frac", "resolution_m"]),
+    );
+  });
+});
+
+describe("starting a run", () => {
+  it("sends the chosen detector in the request body", async () => {
+    await createRun({ base_year_id: "b", target_year_id: "t", detector: "classical" });
+
+    const [path, init] = vi.mocked(apiFetch).mock.calls.at(-1)!;
+    expect(path).toBe("/api/runs");
+    expect(JSON.parse((init as RequestInit).body as string)).toMatchObject({
+      base_year_id: "b",
+      target_year_id: "t",
+      detector: "classical",
+    });
   });
 });

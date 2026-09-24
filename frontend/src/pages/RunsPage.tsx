@@ -4,14 +4,18 @@ import { Link } from "react-router-dom";
 import { ApiError } from "../api/client";
 import { listYears, yearLabel, type ImageryYear } from "../api/imagery";
 import {
+  DEFAULT_DETECTOR,
   DEFAULT_MIN_NEW_AREA_M2,
   DEFAULT_THRESHOLD,
+  DETECTOR_NAMES,
   RUN_ACTIVE,
   cancelRun,
   createRun,
   appendPage,
+  detectorLabel,
   listRunParcels,
   listRuns,
+  type Detector,
   type Run,
   type RunParcel,
 } from "../api/runs";
@@ -130,6 +134,7 @@ export default function RunsPage() {
   const [years, setYears] = useState<ImageryYear[]>([]);
   const [baseId, setBaseId] = useState("");
   const [targetId, setTargetId] = useState("");
+  const [detector, setDetector] = useState<Detector>(DEFAULT_DETECTOR);
   const [threshold, setThreshold] = useState(String(DEFAULT_THRESHOLD));
   const [minArea, setMinArea] = useState(String(DEFAULT_MIN_NEW_AREA_M2));
   const [advanced, setAdvanced] = useState(false);
@@ -169,10 +174,12 @@ export default function RunsPage() {
         target_year_id: targetId,
         threshold: Number(threshold),
         min_new_area_m2: Number(minArea),
+        detector,
       });
       await reload();
     } catch (err) {
-      // 422s carry the exact reason (e.g. "Target year must be later than base year").
+      // 422s and 409s carry the exact reason (e.g. "Target year must be later than base
+      // year", or "segmenter model segmenter-v1 is not published").
       setFormError(
         err instanceof ApiError ? err.detail : err instanceof Error ? err.message : "Could not start run",
       );
@@ -256,6 +263,22 @@ export default function RunsPage() {
                     ))}
                   </select>
                 </label>
+                <label className="text-sm">
+                  <span className="block text-slate-600">Detector</span>
+                  <select
+                    aria-label="Detector"
+                    value={detector}
+                    onChange={(e) => setDetector(e.target.value as Detector)}
+                    className="rounded border border-slate-300 px-3 py-2"
+                    data-testid="detector-select"
+                  >
+                    {(Object.keys(DETECTOR_NAMES) as Detector[]).map((d) => (
+                      <option key={d} value={d}>
+                        {DETECTOR_NAMES[d]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <button
                   type="submit"
                   disabled={busy || !baseId || !targetId}
@@ -328,6 +351,9 @@ export default function RunsPage() {
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="font-medium" data-testid="run-label">
                     {run.base_year.year} → {run.target_year.year}
+                  </span>
+                  <span className="text-slate-600" data-testid="run-detector">
+                    {detectorLabel(run)}
                   </span>
                   <StatusChip status={run.status} testId="run-status" />
                   {RUN_ACTIVE.includes(run.status) && (

@@ -722,8 +722,12 @@ Every evaluation run of this candidate, not only the best:
 | 1 | `score --detector segmentation --labels …` | the figures below |
 | 2 | the same, after fixing the per-year report to read the segmenter's indicators | per-parcel results identical to run 1 |
 | 3 | `chips --all --ranked --limit 20 --markup --detector segmentation` | read below |
+| 4 | the same `score` on CPU (`PTAX_TORCH_DEVICE=cpu`), 2026-09-23 | identical to run 1: every flag and every score equal on all 300 parcels (max difference 0.0000) |
+| 5 | the same `score` on MPS, for the comparison | identical to run 4 |
 
-No setting was changed after any of them.
+No setting was changed after any of them. Runs 4 and 5 were made by the production-integration plan
+(`docs/plans/2026-09-23-segmenter-production-integration.md`) to prove the CPU inference
+production workers run reproduces the gated result; Fargate has no GPU and no MPS.
 
 ### Measured, at the 0.1795 county base rate
 
@@ -795,6 +799,12 @@ M4 Max), one thread: `compare` — two inferences on a ≥ 256 px canvas — ave
 per parcel (p95 79.6 ms); reading both years averages 53.6 ms. A 200 000-parcel run is
 **4.1 CPU-hours of inference, 7.1 with reads**. A Fargate vCPU is likely slower than an M4
 core, so budget a multiple of that; it is still a CPU job, not a GPU one.
+
+**Measured on Fargate (2026-09-23):** the deployed 2 vCPU worker averaged 542.8 ms per parcel
+for `segmenter-v1` against 130.5 ms for the classical detector over the same 25 parcels and
+reads, so inference is about 410 ms per parcel there -- about 5.6x the M4 figure. A
+200 000-parcel run is about 30 hours on one worker. CPU inference reproduces the gated
+result exactly (evaluation runs 4 and 5 above). Details in the top-level README.
 
 ### Decision: **pass**
 

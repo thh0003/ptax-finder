@@ -240,6 +240,10 @@ class Run(Base):
     __tablename__ = "runs"
     __table_args__ = (
         _in_check("status", RUN_STATUSES, "runs_status_check"),
+        _in_check("detector", ("classical", "segmentation"), "runs_detector_check"),
+        CheckConstraint(
+            "(detector = 'segmentation') = (model_sha256 IS NOT NULL)", name="runs_model_check"
+        ),
         Index("runs_tenant_created_idx", "tenant_id", "created_at"),
     )
 
@@ -257,6 +261,11 @@ class Run(Base):
     status: Mapped[str] = mapped_column(Text, nullable=False, default="queued")
     threshold: Mapped[float] = mapped_column(Float, nullable=False)
     min_new_area_m2: Mapped[float] = mapped_column(Float, nullable=False)
+    # Which detector scored the run (0005). A segmenter run also records the model it was
+    # given and its weights' sha256; the worker refuses weights with any other hash.
+    detector: Mapped[str] = mapped_column(Text, nullable=False)
+    model_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    model_sha256: Mapped[str | None] = mapped_column(Text, nullable=True)
     parcels_total: Mapped[int] = mapped_column(Integer, nullable=False)
     parcels_processed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     candidates: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

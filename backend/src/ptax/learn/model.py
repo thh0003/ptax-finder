@@ -12,6 +12,7 @@ radiometric differences are handled in training instead, by brightness and contr
 jitter across four NAIP years.
 """
 
+import os
 from pathlib import Path
 
 import numpy as np
@@ -32,9 +33,14 @@ _STD = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
 
 
 def pick_device(preferred: str | None = None) -> torch.device:
-    """``preferred`` if given, else Apple's ``mps`` when present, else ``cpu``."""
-    if preferred is not None:
-        return torch.device(preferred)
+    """``preferred`` if given, else ``PTAX_TORCH_DEVICE``, else ``mps`` when present, else ``cpu``.
+
+    The environment override lets a machine with MPS reproduce the CPU inference that
+    production workers run.
+    """
+    choice = preferred or os.environ.get("PTAX_TORCH_DEVICE")
+    if choice:
+        return torch.device(choice)
     return torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
 

@@ -1,9 +1,11 @@
 import * as cdk from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
+import * as cxapi from "aws-cdk-lib/cx-api";
 import { buildStacks } from "../lib/app";
 
 // DockerImageAsset hashes the repo context; point it at a stable stand-in for tests.
-const stacks = buildStacks(new cdk.App(), { imageDirectory: __dirname + "/fixtures/image" });
+const app = new cdk.App();
+const stacks = buildStacks(app, { imageDirectory: __dirname + "/fixtures/image" });
 const data = Template.fromStack(stacks.data);
 const auth = Template.fromStack(stacks.auth);
 const compute = Template.fromStack(stacks.compute);
@@ -139,4 +141,26 @@ test("HTTPS listener and redirect appear only when a certificate is supplied", (
   const tls = Template.fromStack(withCert.compute);
   tls.resourceCountIs("AWS::ElasticLoadBalancingV2::Listener", 2);
   tls.hasResourceProperties("AWS::ElasticLoadBalancingV2::Listener", { Port: 443, Protocol: "HTTPS" });
+});
+
+test("the API runs the torch-free app image and the worker runs the worker image", () => {
+  // The Dockerfile's last stage is `worker`, which is Docker's default target, so the API
+  // asset must name `app` explicitly -- differing image URIs alone would not catch that.
+  const manifests = app
+    .synth()
+    .artifacts.filter((a): a is cxapi.AssetManifestArtifact => a instanceof cxapi.AssetManifestArtifact);
+  const images = manifests.flatMap((m) => Object.values(m.contents.dockerImages ?? {}));
+  const targets = images.map((i) => i.source.dockerBuildTarget).sort();
+  expect(targets).toEqual(["app", "worker"]);
+  for (const i of images) expect(i.source.platform).toBe("linux/amd64");
+
+  const api = containerDefs("api");
+  const worker = containerDefs("worker");
+  expect(JSON.stringify(api.Image)).not.toEqual(JSON.stringify(worker.Image));
+});
+
+test("both tasks name the segmenter model runs use", () => {
+  for (const name of ["api", "worker"]) {
+    expect(envMap(containerDefs(name)).SEGMENTER_MODEL).toBe("segmenter-v1");
+  }
 });

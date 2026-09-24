@@ -76,3 +76,12 @@ def test_a_random_crop_sits_in_the_corner_and_the_rest_is_invalid() -> None:
     assert out_valid[:40, :40].all() and out_valid.sum() == 40 * 40
     assert (out_image[:, ~out_valid] == 0).all()
     assert not out_label[~out_valid].any()
+
+
+def test_the_device_can_be_forced_to_cpu_by_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Production workers are CPU-only; the parity check forces CPU on a machine with MPS."""
+    from ptax.learn.model import pick_device
+
+    monkeypatch.setenv("PTAX_TORCH_DEVICE", "cpu")
+    assert pick_device().type == "cpu"
+    assert pick_device("cpu").type == "cpu"  # an explicit choice still wins

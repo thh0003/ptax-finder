@@ -224,6 +224,50 @@ Not exercised on the deployed stack: the viewer against a real signed-in session
 needs a Cognito password, which this workflow does not enter. The four E2E scenarios ran
 against a local stack carrying the same image content — see the plan's E2E Results.
 
+### The segmentation detector in AWS
+
+New runs use the learned segmentation detector by default; the classical detector stays
+selectable per run (Runs page → Detector, or `"detector": "classical"` on `POST /api/runs`).
+The worker service runs a second image target (`backend/Dockerfile` `worker`) carrying
+CPU-only torch; the API image carries none. The model itself is published to the uploads
+bucket once, from a machine that has the frozen weights, before any segmenter run can start:
+
+```sh
+cd backend
+S3_BUCKET=<PtaxData uploads bucket> S3_ENDPOINT_URL= S3_ACCESS_KEY_ID= S3_SECRET_ACCESS_KEY= \
+  uv run ptax-admin model-publish eval/models/segmenter-v1.json
+```
+
+`SEGMENTER_MODEL` (set in `infra/lib/compute-stack.ts`) names the model new runs record;
+a published name is never overwritten, so moving to a retrained model is a new name plus a
+deploy. Without a published model, starting a segmenter run is refused with a 409. A run
+can also be started without the SPA, through the same `run-task` pattern as above:
+`["ptax-admin","start-run","--tenant-fips","27053","--base","2010","--target","2021"]`.
+
+### Verified segmentation detector deployment
+
+2026-09-23, `us-east-1`: `segmenter-v1` published to the uploads bucket (weights sha256
+`95e57ba6…a55b57`), then `cdk deploy --all`. `cdk diff` beforehand touched only
+`PtaxCompute`: the API and worker task definitions (new image, `SEGMENTER_MODEL`) and the two
+services. Both services came up 1/1 on revision `:7`; the API log shows
+`Running upgrade 0004 -> 0005` at start and `/api/health` returns ok.
+
+A default run started with `ptax-admin start-run` on ECS recorded `segmentation`
+(`segmenter-v1`) and scored the demo tenant's 25 parcels against real NAIP 2010 → 2021:
+1 candidate, 0 skipped. From the worker log, on the 2 vCPU / 4 GB Fargate worker:
+
+| | mean per parcel (reads included) | peak RSS |
+|---|---|---|
+| segmentation (`segmenter-v1`) | **542.8 ms** | 733 MB |
+| classical, same parcels | 130.5 ms | 733 MB (same process) |
+
+The segmenter's two CPU inferences therefore cost about **410 ms per parcel** on Fargate,
+roughly 5.6× the M4 single-thread measurement. A **200 000-parcel run is about 30 hours** on
+one worker (classical: about 7). Memory is 18% of the task, so the worker size is unchanged;
+throughput, not memory, is what a county-scale run would need more workers for. Images:
+API 1.85 GB (it previously also carried the 2.2 GB local evaluation cache, now excluded by
+`.dockerignore`), worker 4.16 GB.
+
 ### Verified detector accuracy
 
 2026-09-22, `us-east-1`, tenant `Demo County`, over the same 25 parcels and the same NAIP

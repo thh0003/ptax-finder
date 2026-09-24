@@ -265,3 +265,76 @@ def test_0003_leaves_existing_run_parcel_results_untouched(settings: Settings) -
         )
         conn.execute(text("DELETE FROM users WHERE tenant_id = :tenant"), {"tenant": tenant_id})
         conn.execute(text("DELETE FROM tenants WHERE id = :tenant"), {"tenant": tenant_id})
+
+
+def test_0005_reads_existing_runs_as_classical_and_new_runs_must_say(
+    settings: Settings,
+) -> None:
+    """Every run existing before 0005 was scored by the classical detector, so that is what
+    it must read back as. After 0005 there is no default: a run states its detector, and a
+    segmenter run carries the hash of the exact model it used."""
+    cfg = _alembic_config(settings)
+    engine = get_engine(settings.database_url)
+    command.downgrade(cfg, "base")
+    command.upgrade(cfg, "0004")
+
+    run_id = uuid.uuid4()
+    insert_run = (
+        "INSERT INTO runs (id, tenant_id, layer_id, base_year_id, target_year_id,"
+        " status, threshold, min_new_area_m2, parcels_total, created_by{extra}) VALUES"
+        " (:id, :tenant, :layer, :base, :target, 'succeeded', 0.3, 37.2, 1, :user{values})"
+    )
+    with engine.begin() as conn:
+        tenant_id, layer_id, user_id = _seed_parcel_row(conn, uuid.uuid4())
+        params = {
+            "tenant": tenant_id,
+            "layer": layer_id,
+            "base": _seed_year(conn, tenant_id, user_id, 2021),
+            "target": _seed_year(conn, tenant_id, user_id, 2023),
+            "user": user_id,
+        }
+        conn.execute(text(insert_run.format(extra="", values="")), {**params, "id": run_id})
+
+    try:
+        command.upgrade(cfg, "0005")
+        with engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT detector, model_name, model_sha256 FROM runs WHERE id = :id"),
+                {"id": run_id},
+            ).one()
+        assert tuple(row) == ("classical", None, None)
+
+        rejected = [
+            ("", ""),  # no detector: there is no default any more
+            (", detector", ", 'segmentation'"),  # segmenter run with no model hash
+            (", detector, model_sha256", ", 'classical', 'abc'"),  # hash on a classical run
+            (", detector", ", 'magic'"),
+        ]
+        for extra, values in rejected:
+            with pytest.raises(IntegrityError), engine.begin() as conn:
+                conn.execute(
+                    text(insert_run.format(extra=extra, values=values)),
+                    {**params, "id": uuid.uuid4()},
+                )
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    insert_run.format(
+                        extra=", detector, model_name, model_sha256",
+                        values=", 'segmentation', 'segmenter-v1', 'abc'",
+                    )
+                ),
+                {**params, "id": uuid.uuid4()},
+            )
+
+        command.downgrade(cfg, "0004")
+        assert "detector" not in {c["name"] for c in inspect(engine).get_columns("runs")}
+    finally:
+        command.upgrade(cfg, "head")
+        with engine.begin() as conn:
+            conn.execute(text("DELETE FROM runs WHERE tenant_id = :t"), {"t": tenant_id})
+            conn.execute(text("DELETE FROM imagery_years WHERE tenant_id = :t"), {"t": tenant_id})
+            conn.execute(text("DELETE FROM parcels WHERE tenant_id = :t"), {"t": tenant_id})
+            conn.execute(text("DELETE FROM parcel_layers WHERE tenant_id = :t"), {"t": tenant_id})
+            conn.execute(text("DELETE FROM users WHERE tenant_id = :t"), {"t": tenant_id})
+            conn.execute(text("DELETE FROM tenants WHERE id = :t"), {"t": tenant_id})

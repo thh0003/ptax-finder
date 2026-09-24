@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from geoalchemy2.shape import to_shape
@@ -14,8 +14,10 @@ from sqlalchemy.orm import Session
 
 from ptax.api.imagery import OUTLINE_PX, OUTLINE_RGB, PNG_HEADERS
 from ptax.auth.deps import CurrentUser, get_current_user, require_role
+from ptax.config import Settings
 from ptax.db.models import ImageryYear, Parcel, Run, RunParcel, Tenant, UserRole
 from ptax.db.session import get_db
+from ptax.detection.model_store import published_card
 from ptax.imagery.preview import (
     NEW_BUILTUP_RGB,
     STRUCTURE_RGB,
@@ -38,6 +40,11 @@ DEFAULT_THRESHOLD = 0.3
 # one-car garage or a small addition.
 DEFAULT_MIN_NEW_AREA_M2 = 37.2
 
+DetectorName = Literal["classical", "segmentation"]
+#: The segmenter passed its decision gate (backend/eval/README.md) and is the default.
+#: The classical detector stays selectable as the fallback and the comparison.
+DEFAULT_DETECTOR: DetectorName = "segmentation"
+
 
 class RunYearOut(BaseModel):
     id: uuid.UUID
@@ -53,6 +60,9 @@ class RunOut(BaseModel):
     target_year: RunYearOut
     threshold: float
     min_new_area_m2: float
+    detector: DetectorName
+    #: The segmenter model the run was given; None for a classical run.
+    model_name: str | None
     parcels_total: int
     parcels_processed: int
     candidates: int
@@ -68,6 +78,7 @@ class RunIn(BaseModel):
     target_year_id: uuid.UUID
     threshold: float = Field(default=DEFAULT_THRESHOLD, ge=0, le=1)
     min_new_area_m2: float = Field(default=DEFAULT_MIN_NEW_AREA_M2, ge=0)
+    detector: DetectorName = DEFAULT_DETECTOR
 
 
 def _year_out(year: ImageryYear) -> RunYearOut:
@@ -82,6 +93,8 @@ def _out(run: Run, years: dict[uuid.UUID, ImageryYear]) -> RunOut:
         target_year=_year_out(years[run.target_year_id]),
         threshold=run.threshold,
         min_new_area_m2=run.min_new_area_m2,
+        detector=run.detector,  # type: ignore[arg-type]  # the CHECK constraint holds it
+        model_name=run.model_name,
         parcels_total=run.parcels_total,
         parcels_processed=run.parcels_processed,
         candidates=run.candidates,
@@ -120,41 +133,98 @@ def _ready_year(db: Session, user: CurrentUser, year_id: uuid.UUID, label: str) 
     return year
 
 
-@router.post("", response_model=RunOut, status_code=status.HTTP_201_CREATED)
-def create_run(
-    body: RunIn,
-    user: CurrentUser = Depends(admin_only),
-    db: Session = Depends(get_db),
-) -> RunOut:
-    """Queue a comparison of every current-layer parcel between two ready years."""
-    base = _ready_year(db, user, body.base_year_id, "base")
-    target = _ready_year(db, user, body.target_year_id, "target")
+class RunRefused(Exception):
+    """A run that cannot be queued as asked; ``status_code`` is the HTTP answer."""
+
+    def __init__(self, status_code: int, message: str) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
+def queue_run(
+    db: Session,
+    settings: Settings,
+    *,
+    tenant: Tenant,
+    created_by: uuid.UUID,
+    base: ImageryYear,
+    target: ImageryYear,
+    detector: DetectorName,
+    threshold: float = DEFAULT_THRESHOLD,
+    min_new_area_m2: float = DEFAULT_MIN_NEW_AREA_M2,
+) -> Run:
+    """Create a run and its job, uncommitted. Shared by the API and `ptax-admin start-run`,
+    so the two cannot disagree about what a valid run is.
+
+    A segmenter run records the model named by ``settings.segmenter_model`` and its hash
+    now, from the published card: the worker later loads exactly that, or refuses. With
+    no published card the run is refused here rather than failing on the worker.
+    """
     if target.year <= base.year:
-        raise HTTPException(
+        raise RunRefused(
             status.HTTP_422_UNPROCESSABLE_CONTENT, "Target year must be later than base year"
         )
-    tenant = db.get_one(Tenant, user.tenant_id)
     if tenant.current_parcel_layer_id is None:
-        raise HTTPException(status.HTTP_409_CONFLICT, "no parcel layer")
+        raise RunRefused(status.HTTP_409_CONFLICT, "no parcel layer")
+    model_name = model_sha256 = None
+    if detector == "segmentation":
+        card = published_card(settings, settings.segmenter_model)
+        if card is None:
+            raise RunRefused(
+                status.HTTP_409_CONFLICT,
+                f"segmenter model {settings.segmenter_model} is not published",
+            )
+        model_name, model_sha256 = settings.segmenter_model, str(card["weights_sha256"])
     total = db.execute(
         select(func.count())
         .select_from(Parcel)
         .where(Parcel.layer_id == tenant.current_parcel_layer_id)
     ).scalar_one()
     run = Run(
-        tenant_id=user.tenant_id,
+        tenant_id=tenant.id,
         layer_id=tenant.current_parcel_layer_id,
         base_year_id=base.id,
         target_year_id=target.id,
         status="queued",
-        threshold=body.threshold,
-        min_new_area_m2=body.min_new_area_m2,
+        threshold=threshold,
+        min_new_area_m2=min_new_area_m2,
+        detector=detector,
+        model_name=model_name,
+        model_sha256=model_sha256,
         parcels_total=total,
-        created_by=user.id,
+        created_by=created_by,
     )
     db.add(run)
     db.flush()
-    enqueue(db, "run.execute", user.tenant_id, {"run_id": str(run.id)})
+    enqueue(db, "run.execute", tenant.id, {"run_id": str(run.id)})
+    return run
+
+
+@router.post("", response_model=RunOut, status_code=status.HTTP_201_CREATED)
+def create_run(
+    body: RunIn,
+    request: Request,
+    user: CurrentUser = Depends(admin_only),
+    db: Session = Depends(get_db),
+) -> RunOut:
+    """Queue a comparison of every current-layer parcel between two ready years."""
+    base = _ready_year(db, user, body.base_year_id, "base")
+    target = _ready_year(db, user, body.target_year_id, "target")
+    try:
+        run = queue_run(
+            db,
+            request.app.state.settings,
+            tenant=db.get_one(Tenant, user.tenant_id),
+            created_by=user.id,
+            base=base,
+            target=target,
+            detector=body.detector,
+            threshold=body.threshold,
+            min_new_area_m2=body.min_new_area_m2,
+        )
+    except RunRefused as exc:
+        # Refused before anything was added, so there is nothing to roll back.
+        raise HTTPException(exc.status_code, str(exc)) from exc
     db.commit()
     db.refresh(run)
     return _out(run, {base.id: base, target.id: target})

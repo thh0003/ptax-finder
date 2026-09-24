@@ -7,11 +7,17 @@ graceful worker stop re-queues the job, which resumes by skipping parcels that a
 have ``run_parcels`` rows).
 """
 
+import json
 import logging
 import math
+import resource
+import sys
+import tempfile
+import time
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from geoalchemy2.shape import from_shape, to_shape
@@ -19,8 +25,9 @@ from shapely.geometry import box
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ptax.config import get_settings
+from ptax.config import Settings, get_settings
 from ptax.db.models import ImageryAsset, ImageryYear, Job, Parcel, Run, RunParcel
+from ptax.detection import model_store
 from ptax.detection.detector import (
     ChangeResult,
     ClassicalDetector,
@@ -43,6 +50,9 @@ BATCH_SIZE = 200
 MIN_RESOLUTION_M = 0.5
 MAX_PIXELS = 4_000_000
 GEOHASH_PRECISION = 8
+#: Where the worker keeps fetched model weights. Keyed by name and hash inside it, so a
+#: worker that ran an older model never mistakes its file for the one a run recorded.
+MODEL_CACHE_DIR = Path(tempfile.gettempdir()) / "ptax-models"
 # Below this valid fraction a parcel counts as having no imagery at all: a sliver along
 # an asset edge (reprojected bounds overlap by a pixel or two) is not "partial coverage".
 NO_COVERAGE_VALID_FRAC = 0.05
@@ -216,6 +226,39 @@ def _fit_for_run(
     return fit_radiometry(base_samples, target_samples)
 
 
+def _detector_for(settings: Settings, run: Run) -> Detector:
+    """The detector this run recorded, built once before any parcel is scored.
+
+    A segmenter run gets exactly the weights whose sha256 it recorded at creation, or
+    fails here: a mismatch raises before the batch loop, so the run ends `failed` with no
+    parcel scored by a model nobody froze. The torch model is imported only on this path.
+    """
+    if run.detector == "classical":
+        return ClassicalDetector()
+    if run.detector != "segmentation" or not run.model_name or not run.model_sha256:
+        raise ValueError(f"run {run.id} has no usable detector ({run.detector})")
+    from ptax.detection import learned
+
+    weights = model_store.fetch_weights(settings, run.model_name, run.model_sha256, MODEL_CACHE_DIR)
+    card = model_store.published_card(settings, run.model_name)
+    if card is None:
+        raise model_store.ModelMismatch(f"model {run.model_name} is no longer published")
+    # A local card beside the fetched weights, so `from_model_card` re-checks the hash
+    # against what the card froze as well as against what the run recorded.
+    local_card = MODEL_CACHE_DIR / f"{run.model_name}-{run.model_sha256[:12]}.json"
+    local_card.write_text(json.dumps({**card, "weights": weights.name}))
+    return learned.from_model_card(local_card)
+
+
+def _peak_rss_mb() -> float:
+    """Peak resident memory of this worker process, in MiB.
+
+    ``ru_maxrss`` is KiB on Linux (the Fargate worker) but bytes on macOS.
+    """
+    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    return peak / (1024.0 * 1024.0) if sys.platform == "darwin" else peak / 1024.0
+
+
 def flush_batch(db: Session, run: Run, rows: list[RunParcel]) -> None:
     """Persist one batch of results and advance the run's counters (one commit)."""
     db.add_all(rows)
@@ -256,7 +299,8 @@ def execute_run(db: Session, job: Job) -> None:
         target = db.get_one(ImageryYear, run.target_year_id)
         base_assets = _ready_assets(db, base.id)
         target_assets = _ready_assets(db, target.id)
-        detector = ClassicalDetector()
+        settings = get_settings()
+        detector = _detector_for(settings, run)
 
         ordered_ids = (
             db.execute(
@@ -269,18 +313,23 @@ def execute_run(db: Session, job: Job) -> None:
             .scalars()
             .all()
         )
-        fit = _fit_for_run(db, run, base, target, base_assets, target_assets, ordered_ids)
-        if fit is not None:
-            log.info(
-                "run %s radiometric fit over %d parcels: gains %s",
-                run.id,
-                fit.sampled_parcels,
-                [round(g, 3) for g in fit.gains],
-            )
-        else:
-            log.warning("run %s has no usable radiometric fit; scoring unnormalised", run.id)
+        # The segmenter normalises each chip itself and ignores the fit, so a segmenter run
+        # skips the 120-parcel pre-pass entirely.
+        fit = None
+        if run.detector == "classical":
+            fit = _fit_for_run(db, run, base, target, base_assets, target_assets, ordered_ids)
+            if fit is not None:
+                log.info(
+                    "run %s radiometric fit over %d parcels: gains %s",
+                    run.id,
+                    fit.sampled_parcels,
+                    [round(g, 3) for g in fit.gains],
+                )
+            else:
+                log.warning("run %s has no usable radiometric fit; scoring unnormalised", run.id)
 
         todo = [pid for pid in ordered_ids if pid not in done]
+        started = time.monotonic()
         for start in range(0, len(todo), BATCH_SIZE):
             batch_ids = todo[start : start + BATCH_SIZE]
             parcels = {
@@ -305,12 +354,20 @@ def execute_run(db: Session, job: Job) -> None:
         run.status = "succeeded"
         run.finished_at = _now()
         db.commit()
+        # Per-parcel cost from this worker's own share of the run (a resumed run counts
+        # only what it scored), reads included: that is what a county run pays.
+        mean_parcel_ms = (time.monotonic() - started) * 1000.0 / max(len(todo), 1)
         log.info(
-            "run %s done: %d parcels, %d candidates, %d skipped",
+            "run %s done: %d parcels, %d candidates, %d skipped; detector %s%s;"
+            " mean_parcel_ms %.1f peak_rss_mb %.0f",
             run.id,
             run.parcels_processed,
             run.candidates,
             run.parcels_skipped,
+            run.detector,
+            f" ({run.model_name})" if run.model_name else "",
+            mean_parcel_ms,
+            _peak_rss_mb(),
         )
     except JobInterrupted:
         db.rollback()

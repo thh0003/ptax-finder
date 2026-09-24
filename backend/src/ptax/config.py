@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     # The NAIP buckets are requester-pays in us-west-2 regardless of where we run.
     naip_aws_region: str = "us-west-2"
 
+    # The frozen segmenter model runs use, by name: `models/<name>.{pt,json}` in s3_bucket,
+    # published with `ptax-admin model-publish`. Changing model is a deploy, never a
+    # mutable pointer in the bucket, so every run records exactly what it was given.
+    segmenter_model: str = "segmenter-v1"
+
     @field_validator(
         "s3_endpoint_url",
         "s3_access_key_id",

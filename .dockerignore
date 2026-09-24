@@ -11,3 +11,8 @@ infra
 docs
 dev
 .cognito
+# Local evaluation data: GBs of cached NAIP and training chips, and trained weights. The
+# worker fetches the published model from S3; none of this belongs in an image.
+backend/eval/cache
+backend/eval/out
+backend/eval/models/*.pt

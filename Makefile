@@ -20,8 +20,9 @@ seed:
 api:
 	cd backend && uv run uvicorn ptax.main:app --reload --port 8000
 
+# `--group ml`: the default detector is the segmenter, which needs torch on the worker.
 worker:
-	cd backend && uv run python -m ptax.worker
+	cd backend && uv run --group ml python -m ptax.worker
 
 web:
 	cd frontend && pnpm dev
@@ -56,15 +57,30 @@ test-infra:
 	cd infra && pnpm test && pnpm cdk synth --quiet
 
 ## Production image (same image serves the API+SPA and, with a different command, the worker)
+# `--target app`: the Dockerfile's last stage is the worker, which is Docker's default.
 image:
-	docker build -f backend/Dockerfile -t ptax-finder:local .
+	docker build --target app -f backend/Dockerfile -t ptax-finder:local .
 
 # The raster stack loads shared libraries the slim base image does not ship (GDAL needs
 # libexpat), and an import failure only shows up as a crashlooping container. Check the
 # built image before deploying it.
 image-check: image
 	docker run --rm --entrypoint python ptax-finder:local -c \
-		"import rasterio, rio_tiler, rio_cogeo, pyogrio, geopandas; import ptax.main; print('image imports ok')"
+		"import rasterio, rio_tiler, rio_cogeo, pyogrio, geopandas; import ptax.main; import importlib.util as u; assert u.find_spec('torch') is None, 'torch in the API image'; print('image imports ok')"
+
+# The worker image, built for the platform Fargate runs (amd64) rather than this machine's.
+# The Python stages build under emulation on an arm64 Mac: slow, but the result is exactly
+# what deploys. The check asserts CPU-only torch and no CUDA packages.
+image-worker:
+	docker build --platform linux/amd64 --target worker -f backend/Dockerfile -t ptax-finder-worker:local .
+
+image-check-worker: image-worker
+	docker run --rm --platform linux/amd64 --entrypoint python ptax-finder-worker:local -c \
+		"import torch, segmentation_models_pytorch, ptax.learn.model, ptax.detection.run; \
+		import importlib.metadata as m; \
+		assert torch.version.cuda is None, torch.version.cuda; \
+		bad = [d.metadata['Name'] for d in m.distributions() if d.metadata['Name'].lower().startswith(('nvidia', 'triton'))]; \
+		assert not bad, bad; print('worker image ok: torch', torch.__version__)"
 
 # Runs the built image on the compose network against the dev database.
 image-run:

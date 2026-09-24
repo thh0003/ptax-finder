@@ -39,7 +39,22 @@ dev = [
 ml = [
     "segmentation-models-pytorch>=0.5.0",
     "torch>=2.14.0",
+    # Declared although smp already pulls it in: uv applies [tool.uv.sources] to direct
+    # dependencies only, and PyPI's torchvision is ABI-incompatible with CPU torch
+    # ("operator torchvision::nms does not exist" at import).
+    "torchvision>=0.29.0",
 ]
+
+# Linux (the worker image) takes CPU-only torch: the default PyPI wheel for Linux pulls
+# several GB of CUDA libraries, and Fargate has no GPU. macOS keeps PyPI torch with MPS.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+torchvision = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
 
 [build-system]
 requires = ["hatchling"]

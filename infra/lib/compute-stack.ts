@@ -31,13 +31,20 @@ export class ComputeStack extends cdk.Stack {
 
     const ecsCluster = new ecs.Cluster(this, "Cluster", { vpc: props.vpc });
 
-    const image = ecs.ContainerImage.fromDockerImageAsset(
-      new ecrAssets.DockerImageAsset(this, "Image", {
-        directory: props.imageDirectory ?? `${__dirname}/../..`,
-        file: "backend/Dockerfile",
-        platform: ecrAssets.Platform.LINUX_AMD64,
-      }),
-    );
+    // Two targets of one Dockerfile. `app` (API + SPA) carries no torch; `worker` adds the
+    // CPU-only ML stack for the segmentation detector. `worker` is the Dockerfile's last
+    // stage and so Docker's default target: the API asset must name `app` explicitly.
+    const imageAsset = (id: string, target: string) =>
+      ecs.ContainerImage.fromDockerImageAsset(
+        new ecrAssets.DockerImageAsset(this, id, {
+          directory: props.imageDirectory ?? `${__dirname}/../..`,
+          file: "backend/Dockerfile",
+          target,
+          platform: ecrAssets.Platform.LINUX_AMD64,
+        }),
+      );
+    const image = imageAsset("Image", "app");
+    const workerImage = imageAsset("WorkerImage", "worker");
 
     const secret = props.cluster.secret!;
     const issuer = `https://cognito-idp.${this.region}.amazonaws.com/${props.userPool.userPoolId}`;
@@ -58,6 +65,9 @@ export class ComputeStack extends cdk.Stack {
       S3_ACCESS_KEY_ID: "",
       S3_SECRET_ACCESS_KEY: "",
       COGNITO_ENDPOINT_URL: "",
+      // The frozen segmenter model new runs record (the API) and load (the worker), by name
+      // in the uploads bucket. Moving to a new model is a deploy, never a bucket edit.
+      SEGMENTER_MODEL: "segmenter-v1",
     };
     // The Aurora secret has no URL field; Settings composes DATABASE_URL from these parts.
     const secrets = () => ({
@@ -142,7 +152,7 @@ export class ComputeStack extends cdk.Stack {
       taskRole,
     });
     workerTask.addContainer("worker", {
-      image,
+      image: workerImage,
       command: ["python", "-m", "ptax.worker"],
       environment,
       secrets: secrets(),
